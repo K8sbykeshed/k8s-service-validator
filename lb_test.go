@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestLoadBalancer(t *testing.T) {
+func _TestLoadBalancer(t *testing.T) {
 	feat := features.New("External Name").
 		Assess("cname is reachable", func(ctx context.Context, t *testing.T) context.Context {
 			return ctx

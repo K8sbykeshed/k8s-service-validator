@@ -9,11 +9,17 @@ import (
 	"time"
 )
 
+// getNamespaces returns a random namespace starting on x
+func getNamespaces() (string, []string) {
+	rand.Seed(time.Now().UnixNano())
+	nsX := fmt.Sprintf("x-%d", rand.Intn(1e5))
+	return nsX, []string{nsX}
+}
+
 type Model struct {
 	Namespaces    []*Namespace
 	allPodStrings *[]PodString
 	allPods       *[]*Pod
-	// the raw data
 	NamespaceNames []string
 	PodNames       []string
 	Ports          []int32
@@ -21,6 +27,16 @@ type Model struct {
 	DNSDomain      string
 }
 
+// GetModel returns the manager and model
+func GetModel(cs *kubernetes.Clientset, config *rest.Config) (string, *Model, *KubeManager) {
+	domain := "cluster.local"
+	manager := NewKubeManager(cs, config)
+	nsX, namespaces := getNamespaces()
+	model := NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
+	return nsX, model, manager
+}
+
+// NewModel returns the
 func NewModel(namespaces, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string) *Model {
 	model := &Model{
 		NamespaceNames: namespaces,
@@ -68,18 +84,3 @@ func (m *Model) AllPods() []*Pod {
 	return *m.allPods
 }
 
-// GetModel
-func GetModel(cs *kubernetes.Clientset, config *rest.Config) (string, *Model, *KubeManager) {
-	domain := "cluster.local"
-	manager := NewKubeManager(cs, config)
-	nsX, namespaces := getNamespaces()
-	model := NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
-	return nsX, model, manager
-}
-
-// getNamespaces
-func getNamespaces() (string, []string) {
-	rand.Seed(time.Now().UnixNano())
-	nsX := fmt.Sprintf("x-%d", rand.Intn(1e5))
-	return nsX, []string{nsX}
-}
