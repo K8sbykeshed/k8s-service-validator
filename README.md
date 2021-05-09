@@ -8,3 +8,22 @@ following tests are available:
 - ExternalName
 - Loadbalancer
 - NodePort
+
+## Build and run
+
+To run it directly use:
+
+```
+$ make test
+```
+
+To build the binary to run it use:
+
+```
+$ make build
+$ ./svc-test
+```
+
+## Sketch
+
+![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)

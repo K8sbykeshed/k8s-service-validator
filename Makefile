@@ -6,11 +6,13 @@ NOCOLOR:=\\033[0m
 
 .PHONY: test
 
-test:
+##@ Build
+
+test: ## Runs tests locally
 	go test -v ./...
 
-build:
-	go test -c -v ./...
+build: ## Build tests in a binary
+	go test -v -c -o svc-test .
 
 
 ##@ Verify
