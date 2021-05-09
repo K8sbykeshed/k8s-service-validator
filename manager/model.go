@@ -5,6 +5,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"math/rand"
+	"time"
 )
 
 type Model struct {
@@ -68,16 +70,16 @@ func (m *Model) AllPods() []*Pod {
 
 // GetModel
 func GetModel(cs *kubernetes.Clientset, config *rest.Config) (string, *Model, *KubeManager) {
-	rootNs, domain := "name", "cluster.local"
+	domain := "cluster.local"
 	manager := NewKubeManager(cs, config)
-	nsX, namespaces := getNamespaces(rootNs)
+	nsX, namespaces := getNamespaces()
 	model := NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
 	return nsX, model, manager
 }
 
 // getNamespaces
-func getNamespaces(rootNs string) (string, []string) {
-	rootNs += "-"
-	nsX := fmt.Sprintf("%sx", rootNs)
+func getNamespaces() (string, []string) {
+	rand.Seed(time.Now().UnixNano())
+	nsX := fmt.Sprintf("x-%d", rand.Intn(1e5))
 	return nsX, []string{nsX}
 }
