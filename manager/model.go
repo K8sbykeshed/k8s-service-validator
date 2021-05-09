@@ -3,149 +3,14 @@ package manager
 import (
 	"fmt"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"strings"
+	"k8s.io/client-go/rest"
 )
-
-type Container struct {
-	Port     int32
-	Protocol v1.Protocol
-}
-
-// Name returns the container name
-func (c *Container) Name() string {
-	return fmt.Sprintf("cont-%d-%s", c.Port, strings.ToLower(string(c.Protocol)))
-}
-
-// PortName returns the container port name
-func (c *Container) PortName() string {
-	return fmt.Sprintf("serve-%d-%s", c.Port, strings.ToLower(string(c.Protocol)))
-}
-
-// Spec returns the kube container spec
-func (c *Container) Spec() v1.Container {
-	var (
-		// agnHostImage is the image URI of AgnHost
-		agnHostImage = "agnhost"
-		env          = []v1.EnvVar{}
-		cmd          []string
-	)
-
-	switch c.Protocol {
-	case v1.ProtocolTCP:
-		cmd = []string{"/agnhost", "serve-hostname", "--tcp", "--http=false", "--port", fmt.Sprintf("%d", c.Port)}
-	case v1.ProtocolUDP:
-		cmd = []string{"/agnhost", "serve-hostname", "--udp", "--http=false", "--port", fmt.Sprintf("%d", c.Port)}
-	case v1.ProtocolSCTP:
-		env = append(env, v1.EnvVar{
-			Name:  fmt.Sprintf("SERVE_SCTP_PORT_%d", c.Port),
-			Value: "foo",
-		})
-		cmd = []string{"/agnhost", "porter"}
-	default:
-		fmt.Println(fmt.Printf("invalid protocol %v", c.Protocol))
-	}
-
-	return v1.Container{
-		Name:            c.Name(),
-		ImagePullPolicy: v1.PullIfNotPresent,
-		Image:           agnHostImage,
-		Command:         cmd,
-		Env:             env,
-		SecurityContext: &v1.SecurityContext{},
-		Ports: []v1.ContainerPort{
-			{
-				ContainerPort: c.Port,
-				Name:          c.PortName(),
-				Protocol:      c.Protocol,
-			},
-		},
-	}
-}
-
-type Pod struct {
-	Namespace  string
-	Name       string
-	Containers []*Container
-}
-
-// ContainerSpecs builds kubernetes container specs for the pod
-func (p *Pod) ContainerSpecs() []v1.Container {
-	var containers []v1.Container
-	for _, cont := range p.Containers {
-		containers = append(containers, cont.Spec())
-	}
-	return containers
-}
-
-func (p *Pod) labelSelectorKey() string {
-	return "pod"
-}
-
-func (p *Pod) labelSelectorValue() string {
-	return p.Name
-}
-
-// LabelSelector returns the default labels that should be placed on a pod/deployment
-// in order for it to be uniquely selectable by label selectors
-func (p *Pod) LabelSelector() map[string]string {
-	return map[string]string{
-		p.labelSelectorKey(): p.labelSelectorValue(),
-	}
-}
-
-// KubePod returns the kube pod
-func (p *Pod) KubePod() *v1.Pod {
-	zero := int64(0)
-	return &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      p.Name,
-			Labels:    p.LabelSelector(),
-			Namespace: p.Namespace,
-		},
-		Spec: v1.PodSpec{
-			TerminationGracePeriodSeconds: &zero,
-			Containers:                    p.ContainerSpecs(),
-		},
-	}
-}
-
-// PodString
-type PodString string
-
-// NewPodString
-func NewPodString(namespace, podName string) PodString {
-	return PodString(fmt.Sprintf("%s/%s", namespace, podName))
-}
-
-// String
-func (pod PodString) String() string {
-	return string(pod)
-}
-
-type Namespace struct {
-	Name string
-	Pods []*Pod
-}
-
-func (ns *Namespace) Spec() *v1.Namespace {
-	return &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   ns.Name,
-			Labels: ns.LabelSelector(),
-		},
-	}
-}
-
-func (ns *Namespace) LabelSelector() map[string]string {
-	return map[string]string{"ns": ns.Name}
-}
 
 type Model struct {
 	Namespaces    []*Namespace
 	allPodStrings *[]PodString
-	//allPods       *[]*Pod
+	allPods       *[]*Pod
 	// the raw data
 	NamespaceNames []string
 	PodNames       []string
@@ -187,10 +52,24 @@ func NewModel(namespaces, podNames []string, ports []int32, protocols []v1.Proto
 	return model
 }
 
+// AllPods returns a slice of all pods
+func (m *Model) AllPods() []*Pod {
+	if m.allPods == nil {
+		var pods []*Pod
+		for _, ns := range m.Namespaces {
+			for _, pod := range ns.Pods {
+				pods = append(pods, pod)
+			}
+		}
+		m.allPods = &pods
+	}
+	return *m.allPods
+}
+
 // GetModel
-func GetModel(cs *kubernetes.Clientset) (string, *Model, *KubeManager) {
-	rootNs, domain := "name", "domain"
-	manager := NewKubeManager(cs)
+func GetModel(cs *kubernetes.Clientset, config *rest.Config) (string, *Model, *KubeManager) {
+	rootNs, domain := "name", "cluster.local"
+	manager := NewKubeManager(cs, config)
 	nsX, namespaces := getNamespaces(rootNs)
 	model := NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
 	return nsX, model, manager
