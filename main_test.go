@@ -53,9 +53,9 @@ func TestMain(m *testing.M) {
 
 	testenv.AfterTest(func(ctx context.Context) (context.Context, error) {
 		fmt.Println("====== after test")
-		//if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
-		//	log.Fatal(err)
-		//}
+		if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
+			log.Fatal(err)
+		}
 		return ctx, nil
 	})
 

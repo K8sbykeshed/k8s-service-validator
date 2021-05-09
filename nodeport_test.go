@@ -30,7 +30,6 @@ func TestNodePort(t *testing.T) {
 			reachability := manager.NewReachability(model.AllPods(), false)
 			reachability.ExpectPeer(&manager.Peer{Namespace: namespace}, &manager.Peer{Namespace: namespace, Pod: "a"}, true)
 			manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: nodePort, Protocol: v1.ProtocolTCP, Reachability: reachability})
-
 			return ctx
 		}).Feature()
 	testenv.Test(ctx, t, feat)

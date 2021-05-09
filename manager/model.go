@@ -83,4 +83,3 @@ func (m *Model) AllPods() []*Pod {
 	}
 	return *m.allPods
 }
-
