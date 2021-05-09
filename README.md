@@ -24,6 +24,38 @@ $ make build
 $ ./svc-test
 ```
 
+## ClusterIP testing
+
+```
+reachability: correct:9, incorrect:0, result=true
+
+51 <nil>
+expected:
+
+-		name-x/a	name-x/b	name-x/c
+name-x/a	.		X		X	
+name-x/b	.		X		X	
+name-x/c	.		X		X	
+
+
+97 <nil>
+observed:
+
+-		name-x/a	name-x/b	name-x/c
+name-x/a	.		X		X	
+name-x/b	.		X		X	
+name-x/c	.		X		X	
+
+
+97 <nil>
+comparison:
+
+-		name-x/a	name-x/b	name-x/c
+name-x/a	.		.		.	
+name-x/b	.		.		.	
+name-x/c	.		.		.	
+```
+
 ## Sketch
 
 ![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)
