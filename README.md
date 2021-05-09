@@ -17,12 +17,16 @@ To run it directly use:
 $ make test
 ```
 
-To build the binary to run it use:
+To build the binary and run it, use:
 
 ```
 $ make build
 $ ./svc-test
 ```
+
+You must have a Kubernetes configuration at `$HOME/.kube/config`
+
+### Running on a K8S cluster
 
 ## ClusterIP testing
 

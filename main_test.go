@@ -18,6 +18,9 @@ var (
 	cs      *kubernetes.Clientset
 	config  *rest.Config
 	testenv env.Environment
+	model   *manager.Model
+	ma      *manager.KubeManager
+	namespace string
 	ctx     = context.Background()
 )
 
@@ -39,10 +42,9 @@ func clientSet() (*kubernetes.Clientset, *rest.Config) {
 func TestMain(m *testing.M) {
 	cs, config := clientSet()
 	testenv = env.New()
-
 	testenv.BeforeTest(func(ctx context.Context) (context.Context, error) {
+		namespace, model, ma = manager.GetModel(cs, config)
 		fmt.Println("====== before test")
-		_, model, ma := manager.GetModel(cs, config)
 		if err := ma.InitializeCluster(model); err != nil {
 			log.Fatal(err)
 		}
@@ -51,8 +53,7 @@ func TestMain(m *testing.M) {
 
 	testenv.AfterTest(func(ctx context.Context) (context.Context, error) {
 		fmt.Println("====== after test")
-		_, _, ma := manager.GetModel(cs, config)
-		if err := ma.DeleteNamespaces([]string{"name-x"}); err != nil {
+		if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
 			log.Fatal(err)
 		}
 		return ctx, nil
