@@ -15,6 +15,7 @@ var (
 	waitInterval = 8 * time.Second
 )
 
+// createNodePortService bootstraps the service object, a utility function 
 func createNodePortService() []*v1.Service {
 	pods := model.AllPods()
 	services := make([]*v1.Service, len(pods))
@@ -29,6 +30,7 @@ func createNodePortService() []*v1.Service {
 	return services
 }
 
+// createClusterIPService is another utility function
 func createClusterIPService() {
 	for _, pod := range model.AllPods() {
 		if _, err := ma.CreateService(pod.ClusterIPService()); err != nil {
@@ -37,6 +39,12 @@ func createClusterIPService() {
 	}
 }
 
+
+// The table tests start here
+// Note that pods are scheduled across multiple nodes
+// TODO: We do not yet have a node selector to GAURANTEE predictable spreading
+
+// TestClusterIP is the first test we run ~ it probes from exactly 3 pods to 3 cluster IPs
 func TestClusterIP(t *testing.T) {
 	feat := features.New("Cluster IP").
 		Assess("pods are reachable", func(ctx context.Context, t *testing.T) context.Context {
@@ -49,6 +57,7 @@ func TestClusterIP(t *testing.T) {
 	testenv.Test(ctx, t, feat)
 }
 
+// TestNodePort is the second test we can run ~ it currently probes from exactly 3 pods to the 3 nodeport backends
 func TestNodePort(t *testing.T) {
 	feat := features.New("Node port").
 		Assess("host is reachable by node port", func(ctx context.Context, t *testing.T) context.Context {
