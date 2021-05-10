@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -15,7 +16,7 @@ import (
 )
 
 const (
-	poll = 2 * time.Second
+	poll = 10 * time.Second
 )
 
 var errPodCompleted = fmt.Errorf("pod ran to completion")
@@ -23,24 +24,26 @@ var errPodCompleted = fmt.Errorf("pod ran to completion")
 // KubeManager is the core struct to manage kubernetes objects
 type KubeManager struct {
 	config    *rest.Config
+	Logger    *zap.Logger
 	clientSet *kubernetes.Clientset
 }
 
 // NewKubeManager returns a new KubeManager
-func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config) *KubeManager {
-	return &KubeManager{clientSet: cs, config: config}
+func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.Logger) *KubeManager {
+	return &KubeManager{clientSet: cs, config: config, Logger: logger}
 }
 
 // InitializeCluster start all pods and wait them to be up
 func (k *KubeManager) InitializeCluster(model *Model) error {
 	var createdPods []*v1.Pod
+	k.Logger.Info("Initializing Pods in the cluster.")
+
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
 		}
 		for _, pod := range ns.Pods {
-			fmt.Println(fmt.Printf("creating/updating pod %s/%s", ns.Name, pod.Name))
-
+			k.Logger.Info("Creating/updating pod.", zap.String("namespace", ns.Name), zap.String("name", pod.Name))
 			kubePod, err := k.createPod(pod.KubePod())
 			if err != nil {
 				return err
@@ -48,19 +51,42 @@ func (k *KubeManager) InitializeCluster(model *Model) error {
 			createdPods = append(createdPods, kubePod)
 		}
 	}
-	for _, createdPod := range createdPods {
+
+	for _, podString := range model.AllPodStrings() {
+		kubePod, err := k.getPod(podString.Namespace(), podString.PodName())
+		if err != nil {
+			return err
+		}
+		if kubePod == nil {
+			return errors.Errorf("unable to find pod in ns %s with key/val pod=%s", podString.Namespace(), podString.PodName())
+		}
+
+		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
+		err = WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
+		if err != nil {
+			return errors.Wrapf(err, "unable to wait for pod %s/%s", podString.Namespace(), podString.PodName())
+		}
+	}
+
+	pods := model.AllPods()
+	for i, createdPod := range createdPods {
+		kubePod, err := k.getPod(createdPod.Namespace, createdPod.Name)
+		if err != err {
+			return err
+		}
 		if err := WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
+		// Set IP address on pod model.
+		pods[i].PodIP = kubePod.Status.PodIP
+		pods[i].HostIP = kubePod.Status.HostIP
 	}
-	fmt.Println("all done")
 	return nil
 }
 
 // createPod is a convenience function for pod setup.
 func (k *KubeManager) createPod(pod *v1.Pod) (*v1.Pod, error) {
 	ns := pod.Namespace
-	fmt.Println(fmt.Printf("creating pod %s/%s", ns, pod.Name))
 	createdPod, err := k.clientSet.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to update pod %s/%s", ns, pod.Name)
@@ -96,6 +122,15 @@ func (k *KubeManager) DeleteNamespaces(namespaces []string) error {
 		}
 	}
 	return nil
+}
+
+// getPod gets a pod by namespace and name.
+func (k *KubeManager) getPod(ns string, name string) (*v1.Pod, error) {
+	kubePod, err := k.clientSet.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get pod %s/%s", ns, name)
+	}
+	return kubePod, nil
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
@@ -134,4 +169,50 @@ func (k *KubeManager) executeRemoteCommand(namespace string, pod string, contain
 		CaptureStderr:      true,
 		PreserveWhitespace: false,
 	})
+}
+
+
+
+// WaitForHTTPServers waits for all webservers to be up, on all protocols, and then validates them using the same probe logic as the rest of the suite.
+func (k *KubeManager) WaitForHTTPServers(model *Model) error {
+	const maxTries = 10
+	k.Logger.Info("Waiting for HTTP servers (ports 80 and 81) to become ready")
+
+	testCases := map[string]*TestCase{}
+	for _, port := range model.Ports {
+		for _, protocol := range model.Protocols {
+			fromPort := 81
+			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
+			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol}
+		}
+	}
+	notReady := map[string]bool{}
+	for caseName := range testCases {
+		notReady[caseName] = true
+	}
+
+	usePodIP := true
+	ignoreLoopback := false
+
+	for i := 0; i < maxTries; i++ {
+		for caseName, testCase := range testCases {
+			if notReady[caseName] {
+				reachability := NewReachability(model.AllPods(), true)
+				testCase.Reachability = reachability
+				ProbePodToPodConnectivity(k, model, testCase, usePodIP)
+				_, wrong, _, _ := reachability.Summary(ignoreLoopback)
+				if wrong == 0 {
+					k.Logger.Info("Server is ready", zap.String("case", caseName))
+					delete(notReady, caseName)
+				} else {
+					k.Logger.Info("Server is not ready", zap.String("case", caseName))
+				}
+			}
+		}
+		if len(notReady) == 0 {
+			return nil
+		}
+		time.Sleep(waitInterval)
+	}
+	return errors.Errorf("after %d tries, %d HTTP servers are not ready", maxTries, len(notReady))
 }

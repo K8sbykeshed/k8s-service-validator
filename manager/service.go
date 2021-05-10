@@ -21,18 +21,16 @@ func NewService(p *Pod) *v1.Service {
 }
 
 // portContainer is a helper to return port spec from the service
-func portFromContainer(containers []*Container, nodePort []int32) []v1.ServicePort {
+func portFromContainer(containers []*Container) []v1.ServicePort {
 	servicesPort := make([]v1.ServicePort, len(containers))
+
 	for i, container := range containers {
-		servicePort := v1.ServicePort{
+		sp := v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(container.Protocol)), container.Port),
 			Protocol: container.Protocol,
 			Port:     container.Port,
 		}
-		if nodePort[i] > 0 {
-			servicePort.NodePort = nodePort[i]
-		}
-		servicesPort = append(servicesPort, servicePort)
+		servicesPort[i] = sp
 	}
 	return servicesPort
 }
@@ -40,15 +38,15 @@ func portFromContainer(containers []*Container, nodePort []int32) []v1.ServicePo
 // ClusterIPService returns a kube service spec
 func (p *Pod) ClusterIPService() *v1.Service {
 	service := NewService(p)
-	service.Spec.Ports = portFromContainer(p.Containers, make([]int32, len(p.Containers)))
+	service.Spec.Ports = portFromContainer(p.Containers)
 	return service
 }
 
 // NodePortService returns a new node port service.
-func (p *Pod) NodePortService(nodePorts []int32) *v1.Service {
+func (p *Pod) NodePortService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
-	service.Spec.Ports = portFromContainer(p.Containers, nodePorts)
+	service.Spec.Ports = portFromContainer(p.Containers)
 	return service
 }
 
@@ -56,7 +54,7 @@ func (p *Pod) NodePortService(nodePorts []int32) *v1.Service {
 func (p *Pod) ExternalNameService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeExternalName
-	service.Spec.Ports = portFromContainer(p.Containers, make([]int32, len(p.Containers)))
+	service.Spec.Ports = portFromContainer(p.Containers)
 	return service
 }
 
@@ -64,6 +62,6 @@ func (p *Pod) ExternalNameService() *v1.Service {
 func (p *Pod) LoadBalancerService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeLoadBalancer
-	service.Spec.Ports = portFromContainer(p.Containers, make([]int32, len(p.Containers)))
+	service.Spec.Ports = portFromContainer(p.Containers)
 	return service
 }

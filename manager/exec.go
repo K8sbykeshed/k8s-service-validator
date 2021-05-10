@@ -31,6 +31,14 @@ func WaitForPodRunningInNamespace(c *kubernetes.Clientset, pod *v1.Pod) error {
 	return wait.PollImmediate(poll, timeout, podRunning(c, pod.Name, pod.Namespace))
 }
 
+// WaitForPodNameRunningInNamespace waits default amount of time (PodStartTimeout) for the specified pod to become running.
+// Returns an error if timeout occurs first, or pod goes in to failed state.
+func WaitForPodNameRunningInNamespace(c *kubernetes.Clientset, podName, namespace string) error {
+	timeout := 5 * time.Minute
+	return wait.PollImmediate(poll, timeout, podRunning(c, podName, namespace))
+}
+
+
 func podRunning(c *kubernetes.Clientset, podName, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})

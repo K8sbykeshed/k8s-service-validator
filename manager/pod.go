@@ -30,7 +30,6 @@ func (pod PodString) split() (string, string) {
 	return pieces[0], pieces[1]
 }
 
-// String
 func (pod PodString) String() string {
 	return string(pod)
 }
@@ -40,7 +39,8 @@ type Pod struct {
 	Namespace  string
 	Name       string
 	Containers []*Container
-	Node       *Node
+	PodIP      string
+	HostIP     string
 }
 
 // PodString returns a corresponding pod string

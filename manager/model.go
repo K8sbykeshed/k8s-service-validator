@@ -1,20 +1,8 @@
 package manager
 
 import (
-	"fmt"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"math/rand"
-	"time"
 )
-
-// getNamespaces returns a random namespace starting on x
-func getNamespaces() (string, []string) {
-	rand.Seed(time.Now().UnixNano())
-	nsX := fmt.Sprintf("x-%d", rand.Intn(1e5))
-	return nsX, []string{nsX}
-}
 
 type Model struct {
 	Namespaces    []*Namespace
@@ -27,13 +15,18 @@ type Model struct {
 	DNSDomain      string
 }
 
-// GetModel returns the manager and model
-func GetModel(cs *kubernetes.Clientset, config *rest.Config) (string, *Model, *KubeManager) {
-	domain := "cluster.local"
-	manager := NewKubeManager(cs, config)
-	nsX, namespaces := getNamespaces()
-	model := NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
-	return nsX, model, manager
+// AllPodStrings returns a slice of all pod strings
+func (m *Model) AllPodStrings() []PodString {
+	if m.allPodStrings == nil {
+		var pods []PodString
+		for _, ns := range m.Namespaces {
+			for _, pod := range ns.Pods {
+				pods = append(pods, pod.PodString())
+			}
+		}
+		m.allPodStrings = &pods
+	}
+	return *m.allPodStrings
 }
 
 // NewModel returns the
