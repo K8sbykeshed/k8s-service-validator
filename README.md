@@ -46,6 +46,11 @@ following tests are available:
 - Loadbalancer
 - NodePort
 
+# Details/Contributing
+
+This is just an initial experimental repo but we'd like to fully implement this as a KEP and add test coverage to upstream K8s, 
+if there is consensus in the sig-network group for this.
+
 ## Build and run
 
 To run it directly use:
