@@ -1,15 +1,15 @@
 package manager
 
 import (
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
 
-
 // ProbeJob packages the data for the input of a pod->pod connectivity probe
 type ProbeJob struct {
-	PodFrom        *Pod
-	PodTo          *Pod
+	PodFrom        *workload.Pod
+	PodTo          *workload.Pod
 	ToPort         int
 	ToPodDNSDomain string
 	Protocol       v1.Protocol
@@ -23,16 +23,14 @@ type ProbeJobResults struct {
 	Command     string
 }
 
-
 // probeWorker continues polling a pod connectivity status, until the incoming "jobs" channel is closed, and writes results back out to the "results" channel.
 // it only writes pass/fail status to a channel and has no failure side effects, this is by design since we do not want to fail inside a goroutine.
 func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults, usePodIP bool) {
 	for job := range jobs {
-
 		addrTo := job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
-		if usePodIP {  // used for initial probing (no services exists yet)
+		if usePodIP { // used for initial probing (no services exists yet)
 			addrTo = job.PodTo.PodIP
-		} else if job.ToPort > 30000 {  // node port
+		} else if job.ToPort > 30000 { // node port
 			addrTo = job.PodTo.HostIP
 		}
 

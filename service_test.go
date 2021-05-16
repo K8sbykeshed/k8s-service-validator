@@ -2,7 +2,7 @@ package suites
 
 import (
 	"context"
-	"github.com/k8sbykeshed/svc-tests/manager"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"log"
@@ -15,7 +15,7 @@ var (
 	waitInterval = 8 * time.Second
 )
 
-// createNodePortService bootstraps the service object, a utility function 
+// createNodePortService bootstraps the service object, a utility function
 func createNodePortService() []*v1.Service {
 	pods := model.AllPods()
 	services := make([]*v1.Service, len(pods))
@@ -26,7 +26,7 @@ func createNodePortService() []*v1.Service {
 		}
 		services[i] = service
 	}
-	time.Sleep(waitInterval)  // give some time to fw rules setup
+	time.Sleep(waitInterval) // give some time to fw rules setup
 	return services
 }
 
@@ -39,10 +39,8 @@ func createClusterIPService() {
 	}
 }
 
-
 // The table tests start here
 // Note that pods are scheduled across multiple nodes
-// TODO: We do not yet have a node selector to GAURANTEE predictable spreading
 
 // TestClusterIP is the first test we run ~ it probes from exactly 3 pods to 3 cluster IPs
 func TestClusterIP(t *testing.T) {

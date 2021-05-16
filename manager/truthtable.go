@@ -98,7 +98,6 @@ func (tt *TruthTable) Set(from string, to string, value bool) {
 	dict[to] = value
 }
 
-
 // Get gets the specified value
 func (tt *TruthTable) Get(from string, to string) bool {
 	dict, ok := tt.Values[from]
@@ -111,7 +110,6 @@ func (tt *TruthTable) Get(from string, to string) bool {
 	}
 	return val
 }
-
 
 // PrettyPrint produces a nice visual representation.
 func (tt *TruthTable) PrettyPrint(indent string) string {

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -16,11 +17,11 @@ type TestCase struct {
 type Reachability struct {
 	Expected *TruthTable
 	Observed *TruthTable
-	Pods     []*Pod
+	Pods     []*workload.Pod
 }
 
 // NewReachability instantiates a reachability
-func NewReachability(pods []*Pod, defaultExpectation bool) *Reachability {
+func NewReachability(pods []*workload.Pod, defaultExpectation bool) *Reachability {
 	var podNames []string
 	for _, pod := range pods {
 		podNames = append(podNames, pod.PodString().String())
@@ -50,7 +51,6 @@ func (r *Reachability) PrintSummary(printExpected bool, printObserved bool, prin
 		fmt.Println(fmt.Printf("comparison:\n\n%s\n\n\n", comparison.PrettyPrint("")))
 	}
 }
-
 
 // Summary produces a useful summary of expected and observed data
 func (r *Reachability) Summary(ignoreLoopback bool) (trueObs int, falseObs int, ignoredObs int, comparison *TruthTable) {
@@ -84,14 +84,8 @@ type Peer struct {
 // - an empty namespace means the namespace will always match
 // - otherwise, the namespace must match the PodString's namespace
 // - same goes for Pod: empty matches everything, otherwise must match exactly
-func (p *Peer) Matches(pod PodString) bool {
+func (p *Peer) Matches(pod workload.PodString) bool {
 	return (p.Namespace == "" || p.Namespace == pod.Namespace()) && (p.Pod == "" || p.Pod == pod.PodName())
-}
-
-// PodName extracts the pod name
-func (pod PodString) PodName() string {
-	_, podName := pod.split()
-	return podName
 }
 
 // ExpectPeer sets expected values using Peer matchers
@@ -108,6 +102,6 @@ func (r *Reachability) ExpectPeer(from *Peer, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod PodString, toPod PodString, isConnected bool) {
+func (r *Reachability) Observe(fromPod workload.PodString, toPod workload.PodString, isConnected bool) {
 	r.Observed.Set(string(fromPod), string(toPod), isConnected)
 }

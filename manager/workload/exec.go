@@ -1,8 +1,9 @@
-package manager
+package workload
 
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,9 +18,10 @@ import (
 )
 
 const (
-	waitInterval = 1 * time.Second
-	waitTimeout  = 30 * time.Second
+	poll = 10 * time.Second
 )
+
+var errPodCompleted = fmt.Errorf("pod ran to completion")
 
 // WaitTimeoutForPodReadyInNamespace waits the given timeout duration for the
 // specified pod to be ready and running.
@@ -37,7 +39,6 @@ func WaitForPodNameRunningInNamespace(c *kubernetes.Clientset, podName, namespac
 	timeout := 5 * time.Minute
 	return wait.PollImmediate(poll, timeout, podRunning(c, podName, namespace))
 }
-
 
 func podRunning(c *kubernetes.Clientset, podName, namespace string) wait.ConditionFunc {
 	return func() (bool, error) {
@@ -72,7 +73,7 @@ type ExecOptions struct {
 // ExecWithOptions executes a command in the specified container,
 // returning stdout, stderr and error. `options` allowed for
 // additional parameters to be passed.
-func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options ExecOptions) (string, string, error) {
+func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) {
 	var tty = false
 	req := cs.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -97,8 +98,8 @@ func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options Exec
 	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
 }
 
-func execute(method string, url *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
-	exec, err := remotecommand.NewSPDYExecutor(config, method, url)
+func execute(method string, urlReq *url.URL, config *rest.Config, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {
+	exec, err := remotecommand.NewSPDYExecutor(config, method, urlReq)
 	if err != nil {
 		return err
 	}

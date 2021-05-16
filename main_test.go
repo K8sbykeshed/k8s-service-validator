@@ -3,7 +3,7 @@ package suites
 import (
 	"context"
 	"fmt"
-	"github.com/k8sbykeshed/svc-tests/manager"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,7 +30,10 @@ var (
 )
 
 func init() {
-	logger, _ = zap.NewProduction()
+	var err error
+	if logger, err = zap.NewProduction(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // getNamespaces returns a random namespace starting on x
@@ -40,24 +43,38 @@ func getNamespaces() (string, []string) {
 	return nsX, []string{nsX}
 }
 
-func StartModel() (string, *manager.Model) {
+func StartModel(nodesLen int) (string, *manager.Model) {
 	domain := "cluster.local"
 	nsX, namespaces := getNamespaces()
-	model := manager.NewModel(namespaces, []string{"a", "b", "c"}, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
+
+	// Generate pod names using existing nodes
+	var pods []string
+	for i := 1; i <= nodesLen; i++ {
+		pods = append(pods, fmt.Sprintf("pod-%d", i))
+	}
+
+	model := manager.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, domain)
 	return nsX, model
 }
 
 func TestMain(m *testing.M) {
 	testenv = env.New()
 	cs, config = clientSet()
+
 	ma = manager.NewKubeManager(cs, config, logger)
+	nodes, err := ma.GetReadyNodes()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	testenv.BeforeTest(func(ctx context.Context) (context.Context, error) {
-		namespace, model = StartModel()
-		if err := ma.InitializeCluster(model); err != nil {
+		namespace, model = StartModel(len(nodes))
+		if err := ma.InitializeCluster(model, nodes); err != nil {
 			log.Fatal(err)
 		}
-		ma.WaitForHTTPServers(model)
+		if err := ma.WaitForHTTPServers(model); err != nil {
+			log.Fatal(err)
+		}
 		return ctx, nil
 	})
 
