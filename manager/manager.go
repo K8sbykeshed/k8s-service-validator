@@ -13,13 +13,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 )
 
 const (
-	poll = 10 * time.Second
+	waitInterval = 1 * time.Second
 )
-
-var errPodCompleted = fmt.Errorf("pod ran to completion")
 
 // KubeManager is the core struct to manage kubernetes objects
 type KubeManager struct {
@@ -34,16 +34,28 @@ func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.L
 }
 
 // InitializeCluster start all pods and wait them to be up
-func (k *KubeManager) InitializeCluster(model *Model) error {
-	var createdPods []*v1.Pod
+func (k *KubeManager) InitializeCluster(model *Model, nodes []v1.Node) error {
 	k.Logger.Info("Initializing Pods in the cluster.")
 
+	var createdPods []*v1.Pod
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
 		}
-		for _, pod := range ns.Pods {
-			k.Logger.Info("Creating/updating pod.", zap.String("namespace", ns.Name), zap.String("name", pod.Name))
+
+		// Check size of nodes and already modeled pods
+		if len(ns.Pods) != len(nodes) || len(nodes) <= 1 {
+			return errors.Errorf("invalid number of %d nodes.", len(nodes))
+		}
+
+		for i, pod := range ns.Pods {
+			// Set NodeName on pods being created
+			pod.NodeName = nodes[i].Name
+			k.Logger.Info("creating/updating pod.",
+				zap.String("namespace", ns.Name),
+				zap.String("name", pod.Name),
+				zap.String("node", pod.NodeName),
+			)
 			kubePod, err := k.createPod(pod.KubePod())
 			if err != nil {
 				return err
@@ -62,7 +74,7 @@ func (k *KubeManager) InitializeCluster(model *Model) error {
 		}
 
 		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		err = WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
+		err = workload.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
 		if err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", podString.Namespace(), podString.PodName())
 		}
@@ -71,10 +83,11 @@ func (k *KubeManager) InitializeCluster(model *Model) error {
 	pods := model.AllPods()
 	for i, createdPod := range createdPods {
 		kubePod, err := k.getPod(createdPod.Namespace, createdPod.Name)
-		if err != err {
+		if err != nil {
 			return err
 		}
-		if err := WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
+		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
+		if err := workload.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
 		// Set IP address on pod model.
@@ -124,6 +137,27 @@ func (k *KubeManager) DeleteNamespaces(namespaces []string) error {
 	return nil
 }
 
+// GetReadyNodes returns the ready nodes in the cluster
+func (k *KubeManager) GetReadyNodes() ([]v1.Node, error) {
+	kubeNode, err := k.clientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list nodes")
+	}
+
+	// filter in the ready nodes.
+	var nodes []v1.Node
+	for _, node := range kubeNode.Items {
+		for _, cond := range node.Status.Conditions {
+			if cond.Type == v1.NodeReady {
+				if cond.Status == v1.ConditionTrue {
+					nodes = append(nodes, node)
+				}
+			}
+		}
+	}
+	return nodes, nil
+}
+
 // getPod gets a pod by namespace and name.
 func (k *KubeManager) getPod(ns string, name string) (*v1.Pod, error) {
 	kubePod, err := k.clientSet.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
@@ -159,7 +193,7 @@ func (k *KubeManager) probeConnectivity(nsFrom string, podFrom string, container
 
 // executeRemoteCommand executes a remote shell command on the given pod.
 func (k *KubeManager) executeRemoteCommand(namespace string, pod string, containerName string, command []string) (string, string, error) {
-	return ExecWithOptions(k.config, k.clientSet, ExecOptions{
+	return workload.ExecWithOptions(k.config, k.clientSet, &workload.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
 		PodName:            pod,
@@ -170,8 +204,6 @@ func (k *KubeManager) executeRemoteCommand(namespace string, pod string, contain
 		PreserveWhitespace: false,
 	})
 }
-
-
 
 // WaitForHTTPServers waits for all webservers to be up, on all protocols, and then validates them using the same probe logic as the rest of the suite.
 func (k *KubeManager) WaitForHTTPServers(model *Model) error {

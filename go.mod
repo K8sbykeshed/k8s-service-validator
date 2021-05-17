@@ -1,4 +1,4 @@
-module github.com/k8sbykeshed/svc-tests
+module github.com/k8sbykeshed/k8s-service-lb-validator
 
 go 1.16
 
