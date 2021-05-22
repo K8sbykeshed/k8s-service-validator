@@ -30,6 +30,21 @@ func createNodePortService() []*v1.Service {
 	return services
 }
 
+// createNodePortService bootstraps the service object, a utility function
+func createExternalService() []*v1.Service {
+	pods := model.AllPods()
+	services := make([]*v1.Service, len(pods))
+	for i, pod := range pods {
+		service, err := ma.CreateService(pod.ExternalNameService())
+		if err != nil {
+			log.Fatal(err)
+		}
+		services[i] = service
+	}
+	time.Sleep(waitInterval) // give some time to fw rules setup
+	return services
+}
+
 // createClusterIPService is another utility function
 func createClusterIPService() {
 	for _, pod := range model.AllPods() {
@@ -71,5 +86,23 @@ func TestNodePort(t *testing.T) {
 			}
 			return ctx
 		}).Feature()
+	testenv.Test(ctx, t, feat)
+}
+
+func TestExternalService(t *testing.T) {
+	feat := features.New("External Service").
+		Assess("ExternalService is reachable by node port", func(ctx context.Context, t *testing.T) context.Context {
+		for _, service := range createExternalService() {
+			for _, port := range service.Spec.Ports {
+				ma.Logger.Info("Evaluating node port.", zap.Int32("nodeport", port.NodePort))
+				reachability := manager.NewReachability(model.AllPods(), true)
+				wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: int(port.NodePort), Protocol: v1.ProtocolTCP, Reachability: reachability})
+				if wrong > 0 {
+					t.Error("Wrong result number ")
+				}
+			}
+		}
+		return ctx
+	}).Feature()
 	testenv.Test(ctx, t, feat)
 }
