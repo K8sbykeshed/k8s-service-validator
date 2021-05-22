@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+const (
+	PodIP        = "podip"
+	ClusterIP    = "clusteip"
+	NodePort     = "nodeport"
+	ExternalName = "externalname"
+	LoadBalancer = "loadbalancer"
+)
+
 // NewService returns the service boilerplate
 func NewService(p *Pod) *v1.Service {
 	return &v1.Service{
@@ -23,7 +31,6 @@ func NewService(p *Pod) *v1.Service {
 // portContainer is a helper to return port spec from the service
 func portFromContainer(containers []*Container) []v1.ServicePort {
 	servicesPort := make([]v1.ServicePort, len(containers))
-
 	for i, container := range containers {
 		sp := v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(container.Protocol)), container.Port),

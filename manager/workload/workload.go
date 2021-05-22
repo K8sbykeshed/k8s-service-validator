@@ -95,9 +95,44 @@ type Pod struct {
 	Namespace  string
 	Name       string
 	Containers []*Container
+	NodeName   string
+	// todo(knabben) add a service data and move ports there.
 	PodIP      string
 	HostIP     string
-	NodeName   string
+	ExternalIP string
+	ToPort     int32
+}
+
+func (p *Pod) GetToPort() int32 {
+	return p.ToPort
+}
+
+func (p *Pod) SetToPort(toPort int32) {
+	p.ToPort = toPort
+}
+
+func (p *Pod) GetHostIP() string {
+	return p.HostIP
+}
+
+func (p *Pod) SetHostIP(hostIP string) {
+	p.HostIP = hostIP
+}
+
+func (p *Pod) GetPodIP() string {
+	return p.PodIP
+}
+
+func (p *Pod) SetPodIP(podIP string) {
+	p.PodIP = podIP
+}
+
+func (p *Pod) GetExternalIP() string {
+	return p.ExternalIP
+}
+
+func (p *Pod) SetExternalIP(externalIP string) {
+	p.ExternalIP = externalIP
 }
 
 // PodString returns a corresponding pod string

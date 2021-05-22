@@ -90,9 +90,9 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []v1.Node) error {
 		if err := workload.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
-		// Set IP address on pod model.
-		pods[i].PodIP = kubePod.Status.PodIP
-		pods[i].HostIP = kubePod.Status.HostIP
+		// Set IP addresses on Pod model.
+		pods[i].SetPodIP(kubePod.Status.PodIP)
+		pods[i].SetHostIP(kubePod.Status.HostIP)
 	}
 	return nil
 }
@@ -169,6 +169,19 @@ func (k *KubeManager) GetReadyNodes() ([]v1.Node, error) {
 	return nodes, nil
 }
 
+// GetLoadBalancerServices returns the external-ips from load-balancer servicess
+func (k *KubeManager) GetLoadBalancerService(svc *v1.Service) ([]string, error) {
+	ips := []string{}
+	kubeService, err := k.clientSet.CoreV1().Services(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get service %s/%s", svc.Namespace, svc.Name)
+	}
+	for _, ip := range kubeService.Status.LoadBalancer.Ingress {
+		ips = append(ips, ip.IP)
+	}
+	return ips, nil
+}
+
 // getPod gets a pod by namespace and name.
 func (k *KubeManager) getPod(ns string, name string) (*v1.Pod, error) {
 	kubePod, err := k.clientSet.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
@@ -194,6 +207,7 @@ func (k *KubeManager) probeConnectivity(nsFrom string, podFrom string, container
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
+
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
 		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
@@ -226,7 +240,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		for _, protocol := range model.Protocols {
 			fromPort := 81
 			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
-			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol}
+			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: workload.PodIP}
 		}
 	}
 	notReady := map[string]bool{}
@@ -234,16 +248,13 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		notReady[caseName] = true
 	}
 
-	usePodIP := true
-	ignoreLoopback := false
-
 	for i := 0; i < maxTries; i++ {
 		for caseName, testCase := range testCases {
 			if notReady[caseName] {
 				reachability := NewReachability(model.AllPods(), true)
 				testCase.Reachability = reachability
-				ProbePodToPodConnectivity(k, model, testCase, usePodIP)
-				_, wrong, _, _ := reachability.Summary(ignoreLoopback)
+				ProbePodToPodConnectivity(k, model, testCase)
+				_, wrong, _, _ := reachability.Summary(false)
 				if wrong == 0 {
 					k.Logger.Info("Server is ready", zap.String("case", caseName))
 					delete(notReady, caseName)

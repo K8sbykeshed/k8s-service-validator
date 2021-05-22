@@ -16,7 +16,6 @@ var (
 	ignoreLoopback = false
 )
 
-
 // GetNamespace returns a random namespace starting on x
 func GetNamespace() string {
 	rand.Seed(time.Now().UnixNano())
@@ -45,12 +44,12 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase) int {
 
 	// 1st try
 	k8s.Logger.Info("Validating reachability matrix... (== FIRST TRY ==)")
-	ProbePodToPodConnectivity(k8s, model, testCase, false)
+	ProbePodToPodConnectivity(k8s, model, testCase)
 
 	// 2nd try, in case first one failed
 	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback); wrong != 0 {
 		k8s.Logger.Info("Retrying (== SECOND TRY ==) - failed first probe with wrong results ... ", zap.Int("wrong", wrong))
-		ProbePodToPodConnectivity(k8s, model, testCase, false)
+		ProbePodToPodConnectivity(k8s, model, testCase)
 	}
 
 	// at this point we know if we passed or failed, print final matrix and pass/fail the test.
@@ -65,4 +64,3 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase) int {
 	}
 	return wrong
 }
-

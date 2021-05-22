@@ -11,6 +11,15 @@ type TestCase struct {
 	ToPort       int
 	Protocol     v1.Protocol
 	Reachability *Reachability
+	ServiceType  string
+}
+
+func (t *TestCase) SetServiceType(serviceType string) {
+	t.ServiceType = serviceType
+}
+
+func (t *TestCase) GetServiceType() string {
+	return t.ServiceType
 }
 
 // Reachability packages the data for a cluster-wide connectivity probe

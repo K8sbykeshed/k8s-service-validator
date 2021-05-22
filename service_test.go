@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"log"
@@ -13,11 +14,7 @@ import (
 	"time"
 )
 
-var (
-	waitInterval = 8 * time.Second
-)
-
-// TestClusterIP is the first test we run ~ it probes from exactly 3 pods to 3 cluster IPs
+// TestClusterIP is the first test ~ it probes from exactly 3 pods to 3 cluster IPs
 func TestClusterIP(t *testing.T) {
 	clusterIPEnv := env.New()
 	services, pods := []*v1.Service{}, model.AllPods()
@@ -26,11 +23,11 @@ func TestClusterIP(t *testing.T) {
 	clusterIPEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
 		ma.Logger.Info("Creating a new cluster IP service.")
 		for _, pod := range pods {
-			svc, err := ma.CreateService(pod.ClusterIPService())
+			service, err := ma.CreateService(pod.ClusterIPService())
 			if err != nil {
 				log.Fatal(err)
 			}
-			services = append(services, svc)
+			services = append(services, service)
 		}
 		// todo(knabben) replace this for wait and service readiness, this can take a few seconds
 		// for kube-proxy set up.
@@ -43,7 +40,7 @@ func TestClusterIP(t *testing.T) {
 		Assess("the cluster ip should be reachable.", func(ctx context.Context, t *testing.T) context.Context {
 			// create a new matrix of reachability and test it for cluster ip
 			reachability := manager.NewReachability(pods, true)
-			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability}
+			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP}
 			manager.ValidateOrFail(ma, model, &testCase)
 			return ctx
 		}).Feature()
@@ -58,41 +55,36 @@ func TestClusterIP(t *testing.T) {
 	clusterIPEnv.Test(ctx, t, feature)
 }
 
-// TestNodePort is the second test we can run ~ it currently probes from exactly 3 pods to the 3 nodeport backends
+// TestNodePort is the second test ~ it currently probes from exactly 3 pods to the 3 nodeport backends
 func TestNodePort(t *testing.T) {
-	nodePortEnv := env.New()
-	pods := model.AllPods()
-	services := make([]*v1.Service, len(pods))
+	nodePortEnv, pods := env.New(), model.AllPods()
+	services := []*v1.Service{}
 
 	// Create NodePort service.
 	nodePortEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
 		ma.Logger.Info("Creating a new NodePort service.")
-		for i, pod := range pods {
+		for _, pod := range pods {
 			service, err := ma.CreateService(pod.NodePortService())
 			if err != nil {
 				log.Fatal(err)
 			}
-			services[i] = service
+			time.Sleep(4 * time.Second) // give some time to fw rules setup
+			pod.SetToPort(service.Spec.Ports[0].NodePort)
+			services = append(services, service)
 		}
-		time.Sleep(4 * time.Second) // give some time to fw rules setup
 		return ctx, nil
 	})
 
 	// Execute tests.
 	feature := features.New("Node Port").
 		Assess("the host should reachable on node port", func(ctx context.Context, t *testing.T) context.Context {
-			// todo(knabben) - refactor for only one matrix instead of m*n
-			for _, service := range services {
-				for _, port := range service.Spec.Ports {
-					ma.Logger.Info("Evaluating node port.", zap.Int32("nodeport", port.NodePort))
-					reachability := manager.NewReachability(pods, true)
-					wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: int(port.NodePort), Protocol: v1.ProtocolTCP, Reachability: reachability})
-					if wrong > 0 {
-						t.Error("Wrong result number ")
-					}
-				}
+			reachability := manager.NewReachability(pods, true)
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort})
+			if wrong > 0 {
+				t.Error("Wrong result number ")
 			}
 			return ctx
+
 		}).Feature()
 
 	// Cleanup NodePort service.
@@ -105,24 +97,46 @@ func TestNodePort(t *testing.T) {
 	nodePortEnv.Test(ctx, t, feature)
 }
 
-
-// TestLoadBalancer is the second test we can run ~ it currently probes from exactly 3 pods to the 3 nodeport backends
+// TestLoadBalancer is the third test
 func TestLoadBalancer(t *testing.T) {
-	loadBalancerEnv := env.New()
+	loadBalancerEnv, pods := env.New(), model.AllPods()
+	services := []*v1.Service{}
+
 	loadBalancerEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
-		fmt.Println("before load balancer running")
+		for _, pod := range pods {
+			var ips []string
+			service, err := ma.CreateService(pod.LoadBalancerService())
+			if err != nil {
+				log.Fatal(err)
+			}
+			time.Sleep(4 * time.Second) // give some time to fw rules setup
+			pod.SetToPort(80)
+			if ips, err = ma.GetLoadBalancerService(service); err != nil {
+				log.Fatal(err)
+			}
+			for _, ip := range ips {
+				pod.SetExternalIP(ip)
+			}
+			services = append(services, service)
+		}
 		return ctx, nil
 	})
 
 	feature := features.New("Load Balancer").
 		WithLabel("type", "load_balancer").
 		Assess("load balancer should be reachable via external ip", func(ctx context.Context, t *testing.T) context.Context {
-			ma.Logger.Info("load balancer in the middle")
+			reachability := manager.NewReachability(pods, true)
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.LoadBalancer})
+			if wrong > 0 {
+				t.Error("Wrong result number ")
+			}
 			return ctx
 		}).Feature()
 
 	loadBalancerEnv.AfterTest(func(ctx context.Context) (context.Context, error) {
-		fmt.Println("after node port running")
+		if err := ma.DeleteServices(services); err != nil {
+			ma.Logger.Warn("Cant delete the service", zap.Error(err))
+		}
 		return ctx, nil
 	})
 	loadBalancerEnv.Test(ctx, t, feature)
