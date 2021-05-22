@@ -8,25 +8,19 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"log"
-	"math/rand"
-	"path/filepath"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"testing"
-	"time"
 )
 
 var (
-	namespace string
-	config    *rest.Config
-	testenv   env.Environment
-	model     *manager.Model
-	cs        *kubernetes.Clientset
-	ma        *manager.KubeManager
-	ctx       = context.Background()
-	logger    *zap.Logger
+	config  *rest.Config
+	testenv env.Environment
+	model   *manager.Model
+	cs      *kubernetes.Clientset
+	ma      *manager.KubeManager
+	ctx     = context.Background()
+	logger  *zap.Logger
 )
 
 func init() {
@@ -36,69 +30,53 @@ func init() {
 	}
 }
 
-// getNamespaces returns a random namespace starting on x
-func getNamespaces() (string, []string) {
-	rand.Seed(time.Now().UnixNano())
-	nsX := fmt.Sprintf("x-%d", rand.Intn(1e5))
-	return nsX, []string{nsX}
-}
-
-func StartModel(nodesLen int) (string, *manager.Model) {
-	domain := "cluster.local"
-	nsX, namespaces := getNamespaces()
-
-	// Generate pod names using existing nodes
-	var pods []string
-	for i := 1; i <= nodesLen; i++ {
-		pods = append(pods, fmt.Sprintf("pod-%d", i))
-	}
-
-	model := manager.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, domain)
-	return nsX, model
-}
-
 func TestMain(m *testing.M) {
-	testenv = env.New()
-	cs, config = clientSet()
+	var (
+		err   error
+		nodes []v1.Node
+	)
 
+	testenv = env.New()
+	cs, config = manager.NewClientSet()
+	namespace := manager.GetNamespace()
+	namespaces := []string{namespace}
+
+	// Create a new Manager to control K8S resources.
 	ma = manager.NewKubeManager(cs, config, logger)
-	nodes, err := ma.GetReadyNodes()
-	if err != nil {
+	if nodes, err = ma.GetReadyNodes(); err != nil {
 		log.Fatal(err)
 	}
 
-	testenv.BeforeTest(func(ctx context.Context) (context.Context, error) {
-		namespace, model = StartModel(len(nodes))
-		if err := ma.InitializeCluster(model, nodes); err != nil {
+	// Setup brings the pods only in the start, all tests share the same pods
+	// access them via different services types.
+	testenv.Setup(func(ctx context.Context) (context.Context, error) {
+		// Generate pod names using existing nodes
+		var pods []string
+		for i := 1; i <= len(nodes); i++ {
+			pods = append(pods, fmt.Sprintf("pod-%d", i))
+		}
+
+		// Initialize the model and cluster.
+		domain := "cluster.local"
+		model = manager.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
+		if err = ma.InitializeCluster(model, nodes); err != nil {
 			log.Fatal(err)
 		}
-		if err := ma.WaitForHTTPServers(model); err != nil {
+
+		// Wait for servers to be up.
+		if err = ma.WaitForHTTPServers(model); err != nil {
 			log.Fatal(err)
 		}
 		return ctx, nil
 	})
 
-	testenv.AfterTest(func(ctx context.Context) (context.Context, error) {
-		if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
+	// Finished cleans up the namespace in the end of the suite.
+	testenv.Finish(func(ctx context.Context) (context.Context, error) {
+		logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
+		if err := ma.DeleteNamespaces(namespaces); err != nil {
 			log.Fatal(err)
 		}
 		return ctx, nil
 	})
-
 	testenv.Run(ctx, m)
-}
-
-// clientSet returns the Kubernetes clientset
-func clientSet() (*kubernetes.Clientset, *rest.Config) {
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-	return clientset, config
 }
