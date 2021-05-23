@@ -109,9 +109,7 @@ func (k *KubeManager) createPod(pod *v1.Pod) (*v1.Pod, error) {
 
 // CreateService is a convenience function for service setup.
 func (k *KubeManager) CreateService(service *v1.Service) (*v1.Service, error) {
-	ns := service.Namespace
-	name := service.Name
-
+	ns, name := service.Namespace, service.Name
 	createdService, err := k.clientSet.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to create service %s/%s", ns, name)
@@ -127,11 +125,24 @@ func (k *KubeManager) CreateNamespace(ns *v1.Namespace) (*v1.Namespace, error) {
 	return createdNamespace, nil
 }
 
+// DeleteNamespaces
 func (k *KubeManager) DeleteNamespaces(namespaces []string) error {
 	for _, ns := range namespaces {
 		err := k.clientSet.CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "unable to delete namespace %s", ns)
+		}
+	}
+	return nil
+}
+
+// DeleteServices
+func (k *KubeManager) DeleteServices(services []*v1.Service) error {
+	for _, svc := range services {
+		name := svc.Name
+		err := k.clientSet.CoreV1().Services(svc.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		if err != nil {
+			return errors.Wrapf(err, "unable to delete service %s", name)
 		}
 	}
 	return nil

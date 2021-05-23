@@ -70,36 +70,54 @@ You must have a Kubernetes configuration at `$HOME/.kube/config`
 
 ### Running on a K8S cluster
 
+This test requires mode than 1 Nodes, and it guarantees the proper spread of pods across the existent
+nodes creating len(nodes) pods. The examples above have 4 nodes (3 workers + 1 master).
+
 ## ClusterIP testing
 
-```
-reachability: correct:9, incorrect:0, result=true
+On this example we have a `pod-1`, ` pod-2`, `pod-3` and `pod-4`, the first lines of the probe.go in the logging
+shows `pod-1` probing the other probes on port `80`, this probe is repeat across all other pods, the reachability
+matrix shows the result of the connections outcomes.
 
-51 <nil>
+```
+{"level":"info","ts":1621793385.240396,"caller":"manager/helper.go:45","msg":"Validating reachability matrix... (== FIRST TRY ==)"}
+{"level":"info","ts":1621793385.3714652,"caller":"manager/probe.go:114","msg":"kubectl exec pod-1 -c cont-80-tcp -n x-12348 -- /agnhost connect s-x-12348-pod-3.x-12348.svc.cluster.local:80 --timeout=5s --protocol=tcp"}
+{"level":"info","ts":1621793385.3720098,"caller":"manager/probe.go:114","msg":"kubectl exec pod-1 -c cont-80-tcp -n x-12348 -- /agnhost connect s-x-12348-pod-2.x-12348.svc.cluster.local:80 --timeout=5s --protocol=tcp"}
+{"level":"info","ts":1621793385.385194,"caller":"manager/probe.go:114","msg":"kubectl exec pod-1 -c cont-80-tcp -n x-12348 -- /agnhost connect s-x-12348-pod-1.x-12348.svc.cluster.local:80 --timeout=5s --protocol=tcp"}
+{"level":"info","ts":1621793385.4150555,"caller":"manager/probe.go:114","msg":"kubectl exec pod-1 -c cont-80-tcp -n x-12348 -- /agnhost connect s-x-12348-pod-4.x-12348.svc.cluster.local:80 --timeout=5s --protocol=tcp"}
+...
+// repreat for all pods
+
+reachability: correct:16, incorrect:0, result=true
+
+52 <nil>
 expected:
 
--		name-x/a	name-x/b	name-x/c
-name-x/a	.		X		X	
-name-x/b	.		X		X	
-name-x/c	.		X		X	
+-               x-12348/pod-1   x-12348/pod-2   x-12348/pod-3   x-12348/pod-4
+x-12348/pod-1   .               .               .               .
+x-12348/pod-2   .               .               .               .
+x-12348/pod-3   .               .               .               .
+x-12348/pod-4   .               .               .               .
 
 
-97 <nil>
+176 <nil>
 observed:
 
--		name-x/a	name-x/b	name-x/c
-name-x/a	.		X		X	
-name-x/b	.		X		X	
-name-x/c	.		X		X	
+-               x-12348/pod-1   x-12348/pod-2   x-12348/pod-3   x-12348/pod-4
+x-12348/pod-1   .               .               .               .
+x-12348/pod-2   .               .               .               .
+x-12348/pod-3   .               .               .               .
+x-12348/pod-4   .               .               .               .
 
 
-97 <nil>
+176 <nil>
 comparison:
 
--		name-x/a	name-x/b	name-x/c
-name-x/a	.		.		.	
-name-x/b	.		.		.	
-name-x/c	.		.		.	
+-               x-12348/pod-1   x-12348/pod-2   x-12348/pod-3   x-12348/pod-4
+x-12348/pod-1   .               .               .               .
+x-12348/pod-2   .               .               .               .
+x-12348/pod-3   .               .               .               .
+x-12348/pod-4   .               .               .               .
 ```
 
 ## Sketch
