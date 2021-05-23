@@ -1,5 +1,7 @@
 # K8S Service-API Table Tests
 
+[![GH Table tests](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/main.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/main.yaml)
+
 ## Problem
 
 The current upstream K8s sig-network tests are difficult to interpret in terms of failures, and
