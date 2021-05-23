@@ -69,9 +69,7 @@ func (m *Model) AllPods() []*workload.Pod {
 	if m.allPods == nil {
 		var pods []*workload.Pod
 		for _, ns := range m.Namespaces {
-			for _, pod := range ns.Pods {
-				pods = append(pods, pod)
-			}
+			pods = append(pods, ns.Pods...)
 		}
 		m.allPods = &pods
 	}

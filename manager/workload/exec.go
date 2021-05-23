@@ -5,6 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
+	"strings"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -12,9 +16,6 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"net/url"
-	"strings"
-	"time"
 )
 
 const (
@@ -74,7 +75,7 @@ type ExecOptions struct {
 // returning stdout, stderr and error. `options` allowed for
 // additional parameters to be passed.
 func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) {
-	var tty = false
+	tty := false
 	req := cs.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(options.PodName).

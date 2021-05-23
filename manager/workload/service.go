@@ -2,9 +2,18 @@ package workload
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
+)
+
+const (
+	PodIP        = "podip"
+	ClusterIP    = "clusteip"
+	NodePort     = "nodeport"
+	ExternalName = "externalname"
+	LoadBalancer = "loadbalancer"
 )
 
 // NewService returns the service boilerplate
@@ -23,7 +32,6 @@ func NewService(p *Pod) *v1.Service {
 // portContainer is a helper to return port spec from the service
 func portFromContainer(containers []*Container) []v1.ServicePort {
 	servicesPort := make([]v1.ServicePort, len(containers))
-
 	for i, container := range containers {
 		sp := v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(container.Protocol)), container.Port),
@@ -51,10 +59,10 @@ func (p *Pod) NodePortService() *v1.Service {
 }
 
 // ExternalNameService returns a new external name service.
-func (p *Pod) ExternalNameService() *v1.Service {
+func (p *Pod) ExternalNameService(domain string) *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeExternalName
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.ExternalName = domain
 	return service
 }
 
