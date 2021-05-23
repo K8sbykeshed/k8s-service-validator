@@ -13,6 +13,15 @@ type ProbeJob struct {
 	ToPort         int
 	ToPodDNSDomain string
 	Protocol       v1.Protocol
+	ServiceType    string
+}
+
+func (p *ProbeJob) SetServiceType(serviceType string) {
+	p.ServiceType = serviceType
+}
+
+func (p *ProbeJob) GetServiceType() string {
+	return p.ServiceType
 }
 
 // ProbeJobResults packages the data for the results of a pod->pod connectivity probe
@@ -25,13 +34,22 @@ type ProbeJobResults struct {
 
 // probeWorker continues polling a pod connectivity status, until the incoming "jobs" channel is closed, and writes results back out to the "results" channel.
 // it only writes pass/fail status to a channel and has no failure side effects, this is by design since we do not want to fail inside a goroutine.
-func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults, usePodIP bool) {
+func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults) {
 	for job := range jobs {
-		addrTo := job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
-		if usePodIP { // used for initial probing (no services exists yet)
-			addrTo = job.PodTo.PodIP
-		} else if job.ToPort > 30000 { // node port
-			addrTo = job.PodTo.HostIP
+		var addrTo string
+
+		// Choose the host and port based on service or probing
+		switch job.GetServiceType() {
+		case workload.PodIP:
+			addrTo = job.PodTo.GetPodIP() // use pod IP for probing proposes only
+		case workload.ClusterIP:
+			addrTo = job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
+		case workload.NodePort:
+			addrTo = job.PodTo.GetHostIP()
+		case workload.LoadBalancer:
+			addrTo = job.PodTo.GetExternalIP()
+		default:
+			addrTo = job.PodTo.GetPodIP()
 		}
 
 		podFrom := job.PodFrom
@@ -50,24 +68,31 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 }
 
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
-func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase, usePodIP bool) {
+func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase) {
 	numberOfWorkers := 3 // See https://github.com/kubernetes/kubernetes/pull/97690
 	allPods := model.AllPods()
 	size := len(allPods) * len(allPods)
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
 	for i := 0; i < numberOfWorkers; i++ {
-		go probeWorker(k8s, jobs, results, usePodIP)
+		go probeWorker(k8s, jobs, results)
 	}
 
 	for _, podFrom := range allPods {
 		for _, podTo := range allPods {
+			// if testcase global toPort not set, fallbacks to Pod custom set Port.
+			toPort := testCase.ToPort
+			if toPort == 0 {
+				toPort = int(podTo.GetToPort())
+			}
+
 			jobs <- &ProbeJob{
 				PodFrom:        podFrom,
 				PodTo:          podTo,
-				ToPort:         testCase.ToPort,
+				ToPort:         toPort,
 				ToPodDNSDomain: model.DNSDomain,
 				Protocol:       testCase.Protocol,
+				ServiceType:    testCase.ServiceType,
 			}
 		}
 	}
@@ -85,6 +110,8 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 				k8s.Logger.Warn("ERROR", zap.String("err", result.Err.Error()))
 			}
 		}
+
+		k8s.Logger.Info(result.Command)
 		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 

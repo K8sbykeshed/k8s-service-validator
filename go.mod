@@ -19,6 +19,7 @@ require (
 	k8s.io/apimachinery v0.21.0 // indirect
 	k8s.io/client-go v0.21.0 // indirect
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
+	mvdan.cc/gofumpt v0.1.1 // indirect
 	sigs.k8s.io/e2e-framework v0.0.0-20210507194703-2df6a1df48ed
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.1 // indirect
 )

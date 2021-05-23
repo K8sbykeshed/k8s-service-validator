@@ -19,7 +19,7 @@ func NewTruthTableFromItems(items []string, defaultValue *bool) *TruthTable {
 }
 
 // NewTruthTable creates a new truth table with froms and tos
-func NewTruthTable(froms []string, tos []string, defaultValue *bool) *TruthTable {
+func NewTruthTable(froms, tos []string, defaultValue *bool) *TruthTable {
 	values := map[string]map[string]bool{}
 	for _, from := range froms {
 		values[from] = map[string]bool{}
@@ -87,7 +87,7 @@ func (tt *TruthTable) IsComplete() bool {
 }
 
 // Set sets the value for from->to
-func (tt *TruthTable) Set(from string, to string, value bool) {
+func (tt *TruthTable) Set(from, to string, value bool) {
 	dict, ok := tt.Values[from]
 	if !ok {
 		fmt.Println(fmt.Printf("from-key %s not found", from))
@@ -99,7 +99,7 @@ func (tt *TruthTable) Set(from string, to string, value bool) {
 }
 
 // Get gets the specified value
-func (tt *TruthTable) Get(from string, to string) bool {
+func (tt *TruthTable) Get(from, to string) bool {
 	dict, ok := tt.Values[from]
 	if !ok {
 		fmt.Println(fmt.Printf("from-key %s not found", from))

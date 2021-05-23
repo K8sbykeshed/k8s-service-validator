@@ -2,9 +2,10 @@ package workload
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 // Container represents a container model
@@ -95,9 +96,44 @@ type Pod struct {
 	Namespace  string
 	Name       string
 	Containers []*Container
+	NodeName   string
+	// todo(knabben) add a service data and move ports there.
 	PodIP      string
 	HostIP     string
-	NodeName   string
+	ExternalIP string
+	ToPort     int32
+}
+
+func (p *Pod) GetToPort() int32 {
+	return p.ToPort
+}
+
+func (p *Pod) SetToPort(toPort int32) {
+	p.ToPort = toPort
+}
+
+func (p *Pod) GetHostIP() string {
+	return p.HostIP
+}
+
+func (p *Pod) SetHostIP(hostIP string) {
+	p.HostIP = hostIP
+}
+
+func (p *Pod) GetPodIP() string {
+	return p.PodIP
+}
+
+func (p *Pod) SetPodIP(podIP string) {
+	p.PodIP = podIP
+}
+
+func (p *Pod) GetExternalIP() string {
+	return p.ExternalIP
+}
+
+func (p *Pod) SetExternalIP(externalIP string) {
+	p.ExternalIP = externalIP
 }
 
 // PodString returns a corresponding pod string
@@ -118,9 +154,9 @@ func (p *Pod) QualifiedServiceAddress(dnsDomain string) string {
 
 // ContainerSpecs builds kubernetes container specs for the pod
 func (p *Pod) ContainerSpecs() []v1.Container {
-	var containers []v1.Container
-	for _, cont := range p.Containers {
-		containers = append(containers, cont.Spec())
+	containers := make([]v1.Container, len(p.Containers))
+	for i, cont := range p.Containers {
+		containers[i] = cont.Spec()
 	}
 	return containers
 }
