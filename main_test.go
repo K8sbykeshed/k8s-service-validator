@@ -3,14 +3,16 @@ package suites
 import (
 	"context"
 	"fmt"
+	"log"
+	"testing"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"log"
+
 	"sigs.k8s.io/e2e-framework/pkg/env"
-	"testing"
 )
 
 var (
@@ -33,7 +35,7 @@ func init() {
 func TestMain(m *testing.M) {
 	var (
 		err   error
-		nodes []v1.Node
+		nodes []*v1.Node
 	)
 
 	testenv = env.New()

@@ -3,15 +3,17 @@ package suites
 import (
 	"context"
 	"fmt"
+	"log"
+	"testing"
+	"time"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
-	"log"
+
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/features"
-	"testing"
-	"time"
 )
 
 // TestClusterIP is the first test ~ it probes from exactly 3 pods to 3 cluster IPs
@@ -84,7 +86,6 @@ func TestNodePort(t *testing.T) {
 				t.Error("Wrong result number ")
 			}
 			return ctx
-
 		}).Feature()
 
 	// Cleanup NodePort service.
@@ -143,35 +144,31 @@ func TestLoadBalancer(t *testing.T) {
 }
 
 // TestExternalService
-func _TestExternalService(t *testing.T) {
-	pods := model.AllPods()
-	services := make([]*v1.Service, len(pods))
+func TestExternalService(t *testing.T) {
+	domain := "example.com"
+	externalEnv, pods := env.New(), model.AllPods()
+	services := []*v1.Service{}
 
-	externalEnv := env.New()
 	externalEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
-		ma.Logger.Info("Creating a new External name service.")
-		for i, pod := range pods {
-			service, err := ma.CreateService(pod.ExternalNameService())
+		ma.Logger.Info("Creating a new external name service.")
+		for _, pod := range pods {
+			// Creating a new CNAME for domain from the local service.
+			service, err := ma.CreateService(pod.ExternalNameService(domain))
 			if err != nil {
 				log.Fatal(err)
 			}
-			services[i] = service
+			services = append(services, service)
 		}
-		time.Sleep(4 * time.Second) // give some time to fw rules setup
+		time.Sleep(10 * time.Second) // give some time to fw rules setup ?
 		return ctx, nil
 	})
 
 	feature := features.New("External Service").
 		Assess("the external DNS should be reachable via local service", func(ctx context.Context, t *testing.T) context.Context {
-			for _, service := range services {
-				for _, port := range service.Spec.Ports {
-					ma.Logger.Info("Evaluating node port.", zap.Int32("nodeport", port.NodePort))
-					reachability := manager.NewReachability(model.AllPods(), true)
-					wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: int(port.NodePort), Protocol: v1.ProtocolTCP, Reachability: reachability})
-					if wrong > 0 {
-						t.Error("Wrong result number ")
-					}
-				}
+			reachability := manager.NewReachability(model.AllPods(), true)
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP})
+			if wrong > 0 {
+				t.Error("Wrong result number ")
 			}
 			return ctx
 		}).Feature()

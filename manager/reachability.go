@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 	v1 "k8s.io/api/core/v1"
 )
@@ -31,9 +32,9 @@ type Reachability struct {
 
 // NewReachability instantiates a reachability
 func NewReachability(pods []*workload.Pod, defaultExpectation bool) *Reachability {
-	var podNames []string
-	for _, pod := range pods {
-		podNames = append(podNames, pod.PodString().String())
+	podNames := make([]string, len(pods))
+	for i, pod := range pods {
+		podNames[i] = pod.PodString().String()
 	}
 	r := &Reachability{
 		Expected: NewTruthTableFromItems(podNames, &defaultExpectation),
@@ -44,7 +45,7 @@ func NewReachability(pods []*workload.Pod, defaultExpectation bool) *Reachabilit
 }
 
 // PrintSummary prints the summary
-func (r *Reachability) PrintSummary(printExpected bool, printObserved bool, printComparison bool) {
+func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison bool) {
 	right, wrong, ignored, comparison := r.Summary(ignoreLoopback)
 	if ignored > 0 {
 		fmt.Println(fmt.Printf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
@@ -62,7 +63,7 @@ func (r *Reachability) PrintSummary(printExpected bool, printObserved bool, prin
 }
 
 // Summary produces a useful summary of expected and observed data
-func (r *Reachability) Summary(ignoreLoopback bool) (trueObs int, falseObs int, ignoredObs int, comparison *TruthTable) {
+func (r *Reachability) Summary(ignoreLoopback bool) (trueObs, falseObs, ignoredObs int, comparison *TruthTable) {
 	comparison = r.Expected.Compare(r.Observed)
 	if !comparison.IsComplete() {
 		fmt.Println("observations not complete!")
@@ -98,7 +99,7 @@ func (p *Peer) Matches(pod workload.PodString) bool {
 }
 
 // ExpectPeer sets expected values using Peer matchers
-func (r *Reachability) ExpectPeer(from *Peer, to *Peer, connected bool) {
+func (r *Reachability) ExpectPeer(from, to *Peer, connected bool) {
 	for _, fromPod := range r.Pods {
 		if from.Matches(fromPod.PodString()) {
 			for _, toPod := range r.Pods {
@@ -111,6 +112,6 @@ func (r *Reachability) ExpectPeer(from *Peer, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod workload.PodString, toPod workload.PodString, isConnected bool) {
+func (r *Reachability) Observe(fromPod, toPod workload.PodString, isConnected bool) {
 	r.Observed.Set(string(fromPod), string(toPod), isConnected)
 }

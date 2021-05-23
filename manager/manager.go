@@ -3,16 +3,17 @@ package manager
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"net"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
 )
@@ -34,7 +35,7 @@ func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.L
 }
 
 // InitializeCluster start all pods and wait them to be up
-func (k *KubeManager) InitializeCluster(model *Model, nodes []v1.Node) error {
+func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 	k.Logger.Info("Initializing Pods in the cluster.")
 
 	var createdPods []*v1.Pod
@@ -149,19 +150,19 @@ func (k *KubeManager) DeleteServices(services []*v1.Service) error {
 }
 
 // GetReadyNodes returns the ready nodes in the cluster
-func (k *KubeManager) GetReadyNodes() ([]v1.Node, error) {
+func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 	kubeNode, err := k.clientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list nodes")
 	}
 
 	// filter in the ready nodes.
-	var nodes []v1.Node
+	var nodes []*v1.Node
 	for _, node := range kubeNode.Items {
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == v1.NodeReady {
 				if cond.Status == v1.ConditionTrue {
-					nodes = append(nodes, node)
+					nodes = append(nodes, &node)
 				}
 			}
 		}
@@ -183,7 +184,7 @@ func (k *KubeManager) GetLoadBalancerService(svc *v1.Service) ([]string, error) 
 }
 
 // getPod gets a pod by namespace and name.
-func (k *KubeManager) getPod(ns string, name string) (*v1.Pod, error) {
+func (k *KubeManager) getPod(ns, name string) (*v1.Pod, error) {
 	kubePod, err := k.clientSet.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get pod %s/%s", ns, name)
@@ -192,7 +193,7 @@ func (k *KubeManager) getPod(ns string, name string) (*v1.Pod, error) {
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) probeConnectivity(nsFrom string, podFrom string, containerFrom string, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {
+func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {
 	port := strconv.Itoa(toPort)
 	var cmd []string
 	switch protocol {
@@ -217,7 +218,7 @@ func (k *KubeManager) probeConnectivity(nsFrom string, podFrom string, container
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
-func (k *KubeManager) executeRemoteCommand(namespace string, pod string, containerName string, command []string) (string, string, error) {
+func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {
 	return workload.ExecWithOptions(k.config, k.clientSet, &workload.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,

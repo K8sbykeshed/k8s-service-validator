@@ -2,19 +2,18 @@ package manager
 
 import (
 	"fmt"
+	"math/rand"
+	"path/filepath"
+	"time"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"math/rand"
-	"path/filepath"
-	"time"
 )
 
-var (
-	ignoreLoopback = false
-)
+var ignoreLoopback = false
 
 // GetNamespace returns a random namespace starting on x
 func GetNamespace() string {

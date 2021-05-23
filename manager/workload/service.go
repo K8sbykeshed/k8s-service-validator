@@ -2,9 +2,10 @@ package workload
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 const (
@@ -58,10 +59,10 @@ func (p *Pod) NodePortService() *v1.Service {
 }
 
 // ExternalNameService returns a new external name service.
-func (p *Pod) ExternalNameService() *v1.Service {
+func (p *Pod) ExternalNameService(domain string) *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeExternalName
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.ExternalName = domain
 	return service
 }
 

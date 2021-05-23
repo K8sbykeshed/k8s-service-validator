@@ -36,9 +36,7 @@ type ProbeJobResults struct {
 // it only writes pass/fail status to a channel and has no failure side effects, this is by design since we do not want to fail inside a goroutine.
 func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *ProbeJobResults) {
 	for job := range jobs {
-		var (
-			addrTo string
-		)
+		var addrTo string
 
 		// Choose the host and port based on service or probing
 		switch job.GetServiceType() {

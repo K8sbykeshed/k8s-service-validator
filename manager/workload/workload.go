@@ -2,9 +2,10 @@ package workload
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 // Container represents a container model
@@ -153,9 +154,9 @@ func (p *Pod) QualifiedServiceAddress(dnsDomain string) string {
 
 // ContainerSpecs builds kubernetes container specs for the pod
 func (p *Pod) ContainerSpecs() []v1.Container {
-	var containers []v1.Container
-	for _, cont := range p.Containers {
-		containers = append(containers, cont.Spec())
+	containers := make([]v1.Container, len(p.Containers))
+	for i, cont := range p.Containers {
+		containers[i] = cont.Spec()
 	}
 	return containers
 }
