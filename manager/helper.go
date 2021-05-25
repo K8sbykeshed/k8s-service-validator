@@ -13,8 +13,6 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-var ignoreLoopback = false
-
 // GetNamespace returns a random namespace starting on x
 func GetNamespace() string {
 	rand.Seed(time.Now().UnixNano())
@@ -37,7 +35,7 @@ func NewClientSet() (*kubernetes.Clientset, *rest.Config) {
 }
 
 // ValidateOrFail validates connectivity
-func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase) int {
+func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLoopback bool) int {
 	var wrong int
 	k8s.Logger.Info("Validating reachability matrix...")
 

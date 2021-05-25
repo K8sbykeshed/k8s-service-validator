@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	config  *rest.Config
-	testenv env.Environment
-	model   *manager.Model
-	cs      *kubernetes.Clientset
-	ma      *manager.KubeManager
-	ctx     = context.Background()
-	logger  *zap.Logger
+	config    *rest.Config
+	testenv   env.Environment
+	namespace string
+	model     *manager.Model
+	cs        *kubernetes.Clientset
+	ma        *manager.KubeManager
+	ctx       = context.Background()
+	logger    *zap.Logger
 )
 
 func init() {
@@ -40,7 +41,7 @@ func TestMain(m *testing.M) {
 
 	testenv = env.New()
 	cs, config = manager.NewClientSet()
-	namespace := manager.GetNamespace()
+	namespace = manager.GetNamespace()
 	namespaces := []string{namespace}
 
 	// Create a new Manager to control K8S resources.

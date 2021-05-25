@@ -162,7 +162,7 @@ func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == v1.NodeReady {
 				if cond.Status == v1.ConditionTrue {
-					nodes = append(nodes, &node)
+					nodes = append(nodes, node.DeepCopy())
 				}
 			}
 		}
