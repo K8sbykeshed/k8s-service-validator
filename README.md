@@ -1,6 +1,7 @@
 # K8S Service-API Table Tests
 
-[![GH Table tests](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/main.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/main.yaml)
+[![GH Action IPTables](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/iptables.yaml)
+[![GH Action IPVS](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/ipvs.yaml)
 
 ## Problem
 
