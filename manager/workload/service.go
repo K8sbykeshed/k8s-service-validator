@@ -73,3 +73,14 @@ func (p *Pod) LoadBalancerService() *v1.Service {
 	service.Spec.Ports = portFromContainer(p.Containers)
 	return service
 }
+
+// NodePortLocalService returns a new Load balancer service with local service.
+// service.spec.externalTrafficPolicy - Local preserves the client source IP and avoids a second hop for
+// LoadBalancer and NodePort type services, but risks potentially imbalanced traffic spreading.
+func (p *Pod) NodePortLocalService() *v1.Service {
+	service := NewService(p)
+	service.Spec.Type = v1.ServiceTypeNodePort
+	service.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
+	service.Spec.Ports = portFromContainer(p.Containers)
+	return service
+}

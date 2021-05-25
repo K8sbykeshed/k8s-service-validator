@@ -2,7 +2,6 @@ package suites
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -16,7 +15,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-// TestClusterIP is the first test ~ it probes from exactly 3 pods to 3 cluster IPs
+// TestClusterIP hits the cluster ip on this service
 func TestClusterIP(t *testing.T) {
 	clusterIPEnv := env.New()
 	services, pods := []*v1.Service{}, model.AllPods()
@@ -43,7 +42,7 @@ func TestClusterIP(t *testing.T) {
 			// create a new matrix of reachability and test it for cluster ip
 			reachability := manager.NewReachability(pods, true)
 			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP}
-			manager.ValidateOrFail(ma, model, &testCase)
+			manager.ValidateOrFail(ma, model, &testCase, false)
 			return ctx
 		}).Feature()
 
@@ -57,7 +56,7 @@ func TestClusterIP(t *testing.T) {
 	clusterIPEnv.Test(ctx, t, feature)
 }
 
-// TestNodePort is the second test ~ it currently probes from exactly 3 pods to the 3 nodeport backends
+// TestNodePort tests the existent node port and hits the node and high port allocated by this service.
 func TestNodePort(t *testing.T) {
 	nodePortEnv, pods := env.New(), model.AllPods()
 	services := []*v1.Service{}
@@ -81,7 +80,9 @@ func TestNodePort(t *testing.T) {
 	feature := features.New("Node Port").
 		Assess("the host should reachable on node port", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(pods, true)
-			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort})
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort,
+			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}
@@ -98,7 +99,59 @@ func TestNodePort(t *testing.T) {
 	nodePortEnv.Test(ctx, t, feature)
 }
 
-// TestLoadBalancer is the third test
+// TestNodePortLocal test the same NodePort service (from pod-1), having ingress from different nodes
+//
+//			-		x-35558/pod-1	x-35558/pod-2	x-35558/pod-3	x-35558/pod-4
+//	x-35558/pod-1		.				X				X				X
+//	x-35558/pod-2		.				.				X				X
+//	x-35558/pod-3		.				X				.				X
+//	x-35558/pod-4		.				X				X				.
+//
+func TestNodePortLocal(t *testing.T) {
+	nodePortLocalEnv, pods := env.New(), model.AllPods()
+	services := []*v1.Service{}
+
+	nodePortLocalEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
+		// Create a node port traffic local service for pod-1 only
+		// and share the NodePort with all other pods, the test is using
+		// the same port via different nodes IPs (where each pod is scheduled)
+		service, err := ma.CreateService(pods[0].NodePortLocalService())
+		if err != nil {
+			log.Fatal(err)
+		}
+		time.Sleep(4 * time.Second) // give some time for fw rules setup
+		nodePort := service.Spec.Ports[0].NodePort
+		services = append(services, service)
+		for _, pod := range pods {
+			pod.SetToPort(nodePort)
+		}
+		return ctx, nil
+	})
+
+	feature := features.New("NodePort Traffic Local").
+		WithLabel("type", "node_port_traffic_local").
+		Assess("ExternalTrafficPolicy=local", func(ctx context.Context, t *testing.T) context.Context {
+			reachability := manager.NewReachability(pods, false)
+			reachability.ExpectPeer(&manager.Peer{Namespace: namespace}, &manager.Peer{Namespace: namespace, Pod: "pod-1"}, true)
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort,
+			}, true)
+			if wrong > 0 {
+				t.Error("Wrong result number ")
+			}
+			return ctx
+		}).Feature()
+
+	nodePortLocalEnv.AfterTest(func(ctx context.Context) (context.Context, error) {
+		if err := ma.DeleteServices(services); err != nil {
+			ma.Logger.Warn("Cant delete the service", zap.Error(err))
+		}
+		return ctx, nil
+	})
+	nodePortLocalEnv.Test(ctx, t, feature)
+}
+
+// TestLoadBalancer tests an external load balancer service created for each pod.
 func TestLoadBalancer(t *testing.T) {
 	loadBalancerEnv, pods := env.New(), model.AllPods()
 	services := []*v1.Service{}
@@ -127,7 +180,9 @@ func TestLoadBalancer(t *testing.T) {
 		WithLabel("type", "load_balancer").
 		Assess("load balancer should be reachable via external ip", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(pods, true)
-			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.LoadBalancer})
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.LoadBalancer,
+			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}
@@ -143,7 +198,7 @@ func TestLoadBalancer(t *testing.T) {
 	loadBalancerEnv.Test(ctx, t, feature)
 }
 
-// TestExternalService
+// TestExternalService runs an External service CNAME and probes the local service on it.
 func TestExternalService(t *testing.T) {
 	domain := "example.com"
 	externalEnv, pods := env.New(), model.AllPods()
@@ -166,7 +221,9 @@ func TestExternalService(t *testing.T) {
 	feature := features.New("External Service").
 		Assess("the external DNS should be reachable via local service", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(model.AllPods(), true)
-			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP})
+			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP,
+			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}
@@ -174,7 +231,6 @@ func TestExternalService(t *testing.T) {
 		}).Feature()
 
 	externalEnv.AfterTest(func(ctx context.Context) (context.Context, error) {
-		fmt.Println("after external service running")
 		return ctx, nil
 	})
 	externalEnv.Test(ctx, t, feature)

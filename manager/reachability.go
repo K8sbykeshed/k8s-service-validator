@@ -46,7 +46,7 @@ func NewReachability(pods []*workload.Pod, defaultExpectation bool) *Reachabilit
 
 // PrintSummary prints the summary
 func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison bool) {
-	right, wrong, ignored, comparison := r.Summary(ignoreLoopback)
+	right, wrong, ignored, comparison := r.Summary(false)
 	if ignored > 0 {
 		fmt.Println(fmt.Printf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
 	}
