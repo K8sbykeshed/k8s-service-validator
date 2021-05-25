@@ -1,4 +1,4 @@
-name: Github Kind Testing Lab
+name: GH Action IPTables
 on: [push]
 jobs:
   kind-job:
