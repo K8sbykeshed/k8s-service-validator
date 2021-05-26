@@ -42,7 +42,10 @@ func TestClusterIP(t *testing.T) {
 			// create a new matrix of reachability and test it for cluster ip
 			reachability := manager.NewReachability(pods, true)
 			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP}
-			manager.ValidateOrFail(ma, model, &testCase, false)
+			wrong := manager.ValidateOrFail(ma, model, &testCase, false)
+			if wrong > 0 {
+				t.Error("Wrong result number ")
+			}
 			return ctx
 		}).Feature()
 
