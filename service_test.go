@@ -2,12 +2,14 @@ package suites
 
 import (
 	"context"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/objects"
+	data2 "github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
 	"log"
 	"testing"
 	"time"
 
 	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/data"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 
@@ -22,9 +24,12 @@ func TestClusterIP(t *testing.T) {
 
 	// Create clusterip service.
 	clusterIPEnv.BeforeTest(func(ctx context.Context) (context.Context, error) {
+
 		ma.Logger.Info("Creating a new cluster IP service.")
 		for _, pod := range pods {
-			service, err := ma.CreateService(pod.ClusterIPService())
+			clusterSvc := data2.NewService(pod)
+			service, err := objects.NewService(clusterSvc)
+
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -41,7 +46,7 @@ func TestClusterIP(t *testing.T) {
 		Assess("the cluster ip should be reachable.", func(ctx context.Context, t *testing.T) context.Context {
 			// create a new matrix of reachability and test it for cluster ip
 			reachability := manager.NewReachability(pods, true)
-			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP}
+			testCase := manager.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.ClusterIP}
 			wrong := manager.ValidateOrFail(ma, model, &testCase, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -84,7 +89,7 @@ func TestNodePort(t *testing.T) {
 		Assess("the host should reachable on node port", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(pods, true)
 			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort,
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.NodePort,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -137,7 +142,7 @@ func TestNodePortLocal(t *testing.T) {
 			reachability := manager.NewReachability(pods, false)
 			reachability.ExpectPeer(&manager.Peer{Namespace: namespace}, &manager.Peer{Namespace: namespace, Pod: "pod-1"}, true)
 			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.NodePort,
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.NodePort,
 			}, true)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -184,7 +189,7 @@ func TestLoadBalancer(t *testing.T) {
 		Assess("load balancer should be reachable via external ip", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(pods, true)
 			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.LoadBalancer,
+				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.LoadBalancer,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -225,7 +230,7 @@ func TestExternalService(t *testing.T) {
 		Assess("the external DNS should be reachable via local service", func(ctx context.Context, t *testing.T) context.Context {
 			reachability := manager.NewReachability(model.AllPods(), true)
 			wrong := manager.ValidateOrFail(ma, model, &manager.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: workload.ClusterIP,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.ClusterIP,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")

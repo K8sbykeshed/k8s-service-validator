@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/data"
 )
 
 const (
@@ -75,7 +75,7 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 		}
 
 		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		err = workload.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
+		err = data.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
 		if err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", podString.Namespace(), podString.PodName())
 		}
@@ -88,7 +88,7 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 			return err
 		}
 		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		if err := workload.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
+		if err := data.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
 		// Set IP addresses on Pod model.
@@ -108,15 +108,6 @@ func (k *KubeManager) createPod(pod *v1.Pod) (*v1.Pod, error) {
 	return createdPod, nil
 }
 
-// CreateService is a convenience function for service setup.
-func (k *KubeManager) CreateService(service *v1.Service) (*v1.Service, error) {
-	ns, name := service.Namespace, service.Name
-	createdService, err := k.clientSet.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to create service %s/%s", ns, name)
-	}
-	return createdService, nil
-}
 
 func (k *KubeManager) CreateNamespace(ns *v1.Namespace) (*v1.Namespace, error) {
 	createdNamespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
@@ -219,7 +210,7 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 
 // executeRemoteCommand executes a remote shell command on the given pod.
 func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {
-	return workload.ExecWithOptions(k.config, k.clientSet, &workload.ExecOptions{
+	return data.ExecWithOptions(k.config, k.clientSet, &data.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
 		PodName:            pod,
@@ -241,7 +232,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		for _, protocol := range model.Protocols {
 			fromPort := 81
 			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
-			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: workload.PodIP}
+			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: data.PodIP}
 		}
 	}
 	notReady := map[string]bool{}
