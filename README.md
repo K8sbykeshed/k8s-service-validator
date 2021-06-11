@@ -1,7 +1,9 @@
 # K8S Service-API Table Tests
 
-[![GH Action IPTables](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/iptables.yaml)
-[![GH Action IPVS](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/ipvs.yaml)
+[![GH Kube-Proxy - iptables](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kube-proxy-iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kube-proxy-iptables.yaml)
+[![GH Kube-Proxy - ipvs](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kube-proxy-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kube-proxy-ipvs.yaml)
+[![GH KPNG - nftables](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kpng-nftables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kpng-nftables.yaml)
+[![GH KPNG - ipvs](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kpng-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-lb-validator/actions/workflows/kpng-ipvs.yaml)
 
 ## Problem
 
