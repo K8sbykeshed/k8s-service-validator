@@ -6,7 +6,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -19,9 +19,9 @@ var (
 	config    *rest.Config
 	testenv   env.Environment
 	namespace string
-	model     *manager.Model
+	model     *matrix.Model
 	cs        *kubernetes.Clientset
-	ma        *manager.KubeManager
+	ma        *matrix.KubeManager
 	ctx       = context.Background()
 	logger    *zap.Logger
 )
@@ -40,12 +40,12 @@ func TestMain(m *testing.M) {
 	)
 
 	testenv = env.New()
-	cs, config = manager.NewClientSet()
-	namespace = manager.GetNamespace()
+	cs, config = matrix.NewClientSet()
+	namespace = matrix.GetNamespace()
 	namespaces := []string{namespace}
 
 	// Create a new Manager to control K8S resources.
-	ma = manager.NewKubeManager(cs, config, logger)
+	ma = matrix.NewKubeManager(cs, config, logger)
 	if nodes, err = ma.GetReadyNodes(); err != nil {
 		log.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 
 		// Initialize the model and cluster.
 		domain := "cluster.local"
-		model = manager.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
+		model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, domain)
 		if err = ma.InitializeCluster(model, nodes); err != nil {
 			log.Fatal(err)
 		}

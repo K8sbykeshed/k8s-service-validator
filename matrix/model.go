@@ -1,7 +1,7 @@
-package manager
+package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/data"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
 	v1 "k8s.io/api/core/v1"
 )
 

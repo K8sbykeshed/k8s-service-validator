@@ -29,7 +29,7 @@ func NewService(p *Pod) *v1.Service {
 	}
 }
 
-// portContainer is a helper to return port spec from the service
+// portFromContainer is a helper to return port spec from the service
 func portFromContainer(containers []*Container) []v1.ServicePort {
 	servicesPort := make([]v1.ServicePort, len(containers))
 	for i, container := range containers {
