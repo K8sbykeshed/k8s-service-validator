@@ -1,4 +1,4 @@
-package manager
+package matrix
 
 import (
 	"context"
@@ -15,7 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
+	k8s "github.com/k8sbykeshed/k8s-service-lb-validator/objects/kubernetes"
 )
 
 const (
@@ -75,7 +76,7 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 		}
 
 		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		err = workload.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
+		err = k8s.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
 		if err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", podString.Namespace(), podString.PodName())
 		}
@@ -88,7 +89,7 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 			return err
 		}
 		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		if err := workload.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
+		if err := k8s.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
 		// Set IP addresses on Pod model.
@@ -108,16 +109,7 @@ func (k *KubeManager) createPod(pod *v1.Pod) (*v1.Pod, error) {
 	return createdPod, nil
 }
 
-// CreateService is a convenience function for service setup.
-func (k *KubeManager) CreateService(service *v1.Service) (*v1.Service, error) {
-	ns, name := service.Namespace, service.Name
-	createdService, err := k.clientSet.CoreV1().Services(ns).Create(context.TODO(), service, metav1.CreateOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to create service %s/%s", ns, name)
-	}
-	return createdService, nil
-}
-
+// CreateNamespace
 func (k *KubeManager) CreateNamespace(ns *v1.Namespace) (*v1.Namespace, error) {
 	createdNamespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 	if err != nil {
@@ -132,18 +124,6 @@ func (k *KubeManager) DeleteNamespaces(namespaces []string) error {
 		err := k.clientSet.CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "unable to delete namespace %s", ns)
-		}
-	}
-	return nil
-}
-
-// DeleteServices
-func (k *KubeManager) DeleteServices(services []*v1.Service) error {
-	for _, svc := range services {
-		name := svc.Name
-		err := k.clientSet.CoreV1().Services(svc.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-		if err != nil {
-			return errors.Wrapf(err, "unable to delete service %s", name)
 		}
 	}
 	return nil
@@ -168,19 +148,6 @@ func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 		}
 	}
 	return nodes, nil
-}
-
-// GetLoadBalancerServices returns the external-ips from load-balancer servicess
-func (k *KubeManager) GetLoadBalancerService(svc *v1.Service) ([]string, error) {
-	ips := []string{}
-	kubeService, err := k.clientSet.CoreV1().Services(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get service %s/%s", svc.Namespace, svc.Name)
-	}
-	for _, ip := range kubeService.Status.LoadBalancer.Ingress {
-		ips = append(ips, ip.IP)
-	}
-	return ips, nil
 }
 
 // getPod gets a pod by namespace and name.
@@ -219,7 +186,7 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 
 // executeRemoteCommand executes a remote shell command on the given pod.
 func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {
-	return workload.ExecWithOptions(k.config, k.clientSet, &workload.ExecOptions{
+	return k8s.ExecWithOptions(k.config, k.clientSet, &k8s.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
 		PodName:            pod,
@@ -241,7 +208,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		for _, protocol := range model.Protocols {
 			fromPort := 81
 			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
-			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: workload.PodIP}
+			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: data.PodIP}
 		}
 	}
 	notReady := map[string]bool{}

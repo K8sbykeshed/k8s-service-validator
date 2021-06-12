@@ -1,4 +1,4 @@
-package workload
+package kubernetes
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ const (
 
 var errPodCompleted = fmt.Errorf("pod ran to completion")
 
-// WaitTimeoutForPodReadyInNamespace waits the given timeout duration for the
+// WaitForPodRunningInNamespace waits the given timeout duration for the
 // specified pod to be ready and running.
 func WaitForPodRunningInNamespace(c *kubernetes.Clientset, pod *v1.Pod) error {
 	if pod.Status.Phase == v1.PodRunning {

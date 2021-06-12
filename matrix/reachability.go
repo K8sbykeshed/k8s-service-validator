@@ -1,9 +1,9 @@
-package manager
+package matrix
 
 import (
 	"fmt"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -27,11 +27,11 @@ func (t *TestCase) GetServiceType() string {
 type Reachability struct {
 	Expected *TruthTable
 	Observed *TruthTable
-	Pods     []*workload.Pod
+	Pods     []*data.Pod
 }
 
 // NewReachability instantiates a reachability
-func NewReachability(pods []*workload.Pod, defaultExpectation bool) *Reachability {
+func NewReachability(pods []*data.Pod, defaultExpectation bool) *Reachability {
 	podNames := make([]string, len(pods))
 	for i, pod := range pods {
 		podNames[i] = pod.PodString().String()
@@ -94,7 +94,7 @@ type Peer struct {
 // - an empty namespace means the namespace will always match
 // - otherwise, the namespace must match the PodString's namespace
 // - same goes for Pod: empty matches everything, otherwise must match exactly
-func (p *Peer) Matches(pod workload.PodString) bool {
+func (p *Peer) Matches(pod data.PodString) bool {
 	return (p.Namespace == "" || p.Namespace == pod.Namespace()) && (p.Pod == "" || p.Pod == pod.PodName())
 }
 
@@ -112,6 +112,6 @@ func (r *Reachability) ExpectPeer(from, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod, toPod workload.PodString, isConnected bool) {
+func (r *Reachability) Observe(fromPod, toPod data.PodString, isConnected bool) {
 	r.Observed.Set(string(fromPod), string(toPod), isConnected)
 }

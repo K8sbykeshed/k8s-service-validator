@@ -1,15 +1,15 @@
-package manager
+package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-lb-validator/manager/workload"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
 
 // ProbeJob packages the data for the input of a pod->pod connectivity probe
 type ProbeJob struct {
-	PodFrom        *workload.Pod
-	PodTo          *workload.Pod
+	PodFrom        *data.Pod
+	PodTo          *data.Pod
 	ToPort         int
 	ToPodDNSDomain string
 	Protocol       v1.Protocol
@@ -40,13 +40,13 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 
 		// Choose the host and port based on service or probing
 		switch job.GetServiceType() {
-		case workload.PodIP:
-			addrTo = job.PodTo.GetPodIP() // use pod IP for probing proposes only
-		case workload.ClusterIP:
-			addrTo = job.PodTo.QualifiedServiceAddress(job.ToPodDNSDomain)
-		case workload.NodePort:
+		case data.PodIP:
+			addrTo = job.PodTo.GetPodIP()
+		case data.ClusterIP:
+			addrTo = job.PodTo.GetPodIP()
+		case data.NodePort:
 			addrTo = job.PodTo.GetHostIP()
-		case workload.LoadBalancer:
+		case data.LoadBalancer:
 			addrTo = job.PodTo.GetExternalIP()
 		default:
 			addrTo = job.PodTo.GetPodIP()
