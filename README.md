@@ -56,9 +56,15 @@ following tests are available:
 This is just an initial experimental repo but we'd like to fully implement this as a KEP and add test coverage to upstream K8s, 
 if there is consensus in the sig-network group for this.
 
-## Build and run
+## Build and run - development
 
-To run it directly use:
+Create a local cluster using the Kind, make sure your cluster have 1+ nodes:
+
+```
+$ kind create cluster --config=hack/kind-multi-worker.yaml
+```
+
+To run the tests directly you can use:
 
 ```
 $ make test
