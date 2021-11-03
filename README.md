@@ -134,3 +134,13 @@ x-12348/pod-4   .               .               .               .
 ## Sketch
 
 ![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)
+
+
+# Plan
+- Initial demo at sig-network (done), establishing agreement on future of service tests.
+- Establish parity w/ existing sig-network tests
+- Use this repo to do all the validation for KPNG
+- demo KPNG with the new service lb tests at sig-network
+- establish a kubernetes-sigs/... repo for this framework, to standardize the CI for KPNG 
+- use these tests as a new test-infra job in sig-network for in-tree kube proxy
+
