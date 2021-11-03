@@ -143,4 +143,4 @@ x-12348/pod-4   .               .               .               .
 - demo KPNG with the new service lb tests at sig-network
 - establish a kubernetes-sigs/... repo for this framework, to standardize the CI for KPNG 
 - use these tests as a new test-infra job in sig-network for in-tree kube proxy
-
+- eventually remove old service lb tests from sig-network if community agrees
