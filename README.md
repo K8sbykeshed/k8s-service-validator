@@ -58,10 +58,12 @@ if there is consensus in the sig-network group for this.
 
 ## Build and run - development
 
-Create a local cluster using the Kind, make sure your cluster have 1+ nodes:
+Create a local cluster using the Kind, make sure your cluster have 1+ nodes,
+install MetalLB:
 
 ```
 $ kind create cluster --config=hack/kind-multi-worker.yaml
+$ hack/install_metallb.sh
 ```
 
 To run the tests directly you can use:
@@ -75,6 +77,51 @@ To build the binary and run it, use:
 ```
 $ make build
 $ ./svc-test
+```
+
+### Using E2E tests
+
+Download the Kubernetes repository and build the tests binary
+
+```
+$ make WHAT=test/e2e                                                                                                                                                                                                                [15:28:57]
++++ [1103 15:29:10] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/prerelease-lifecycle-gen
+> non-static build: k8s.io/kubernetes/./vendor/k8s.io/code-generator/cmd/prerelease-lifecycle-gen
+Generating prerelease lifecycle code for 28 targets
++++ [1103 15:29:13] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/deepcopy-gen
+> non-static build: k8s.io/kubernetes/./vendor/k8s.io/code-generator/cmd/deepcopy-gen
+Generating deepcopy code for 236 targets
++++ [1103 15:29:19] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/defaulter-gen
+> non-static build: k8s.io/kubernetes/./vendor/k8s.io/code-generator/cmd/defaulter-gen
+Generating defaulter code for 94 targets
++++ [1103 15:29:26] Building go targets for linux/amd64:
+    ./vendor/k8s.io/code-generator/cmd/conversion-gen
+> non-static build: k8s.io/kubernetes/./vendor/k8s.io/code-generator/cmd/conversion-gen
+Generating conversion code for 130 targets
++++ [1103 15:29:38] Building go targets for linux/amd64:
+    ./vendor/k8s.io/kube-openapi/cmd/openapi-gen
+> non-static build: k8s.io/kubernetes/./vendor/k8s.io/kube-openapi/cmd/openapi-gen
+Generating openapi code for KUBE
+Generating openapi code for AGGREGATOR
+Generating openapi code for APIEXTENSIONS
+Generating openapi code for CODEGEN
+Generating openapi code for SAMPLEAPISERVER
++++ [1103 15:29:47] Building go targets for linux/amd64:
+    test/e2e
+> non-static build: k8s.io/kubernetes/test/e2e
+```
+
+There will be a new compiled binary under `_ouput/bin/e2e.test` with around 150Mb, you
+can use it to run your sig-network tests as:
+
+```
+_output/bin/e2e.test -ginkgo.focus="\[sig-network\]" \
+    -ginkgo.skip="\[Feature:(Networking-IPv6|Example|Federation|PerformanceDNS)\]|LB.health.check|LoadBalancer|load.balancer|GCE|NetworkPolicy|DualStack" \
+    --provider=local \ 
+    --kubeconfig=.kube/config
 ```
 
 You must have a Kubernetes configuration at `$HOME/.kube/config`
