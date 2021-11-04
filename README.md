@@ -84,7 +84,7 @@ $ ./svc-test
 Download the Kubernetes repository and build the tests binary
 
 ```
-$ make WHAT=test/e2e                                                                                                                                                                                                                [15:28:57]
+$ make WHAT=test/e2e/e2e.test
 +++ [1103 15:29:10] Building go targets for linux/amd64:
     ./vendor/k8s.io/code-generator/cmd/prerelease-lifecycle-gen
 > non-static build: k8s.io/kubernetes/./vendor/k8s.io/code-generator/cmd/prerelease-lifecycle-gen
