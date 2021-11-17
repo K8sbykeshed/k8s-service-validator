@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 			return ctx, nil
 		},
 	).Finish(
-		//Finished cleans up the namespace in the end of the suite.
+		// Finished cleans up the namespace in the end of the suite.
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
 			if err := ma.DeleteNamespaces(namespaces); err != nil {
