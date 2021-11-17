@@ -35,7 +35,7 @@ func TestClusterIP(t *testing.T) {
 		})
 
 	env.New().BeforeEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
 			ma.Logger.Info("Creating a new cluster IP service batch.")
 			for _, pod := range pods {
 				clusterSvc := pod.ClusterIPService()
@@ -54,7 +54,7 @@ func TestClusterIP(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, clusterIPFeature.Feature())
 
 }
@@ -78,7 +78,7 @@ func TestNodePort(t *testing.T) {
 		})
 
 	env.New().BeforeEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
 			ma.Logger.Info("Creating a new NodePort service.")
 			for _, pod := range pods {
 				clusterSvc := pod.NodePortService()
@@ -104,7 +104,7 @@ func TestNodePort(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, nodePortFeature.Feature())
 }
 
@@ -135,7 +135,7 @@ func TestNodePortTrafficLocal(t *testing.T) {
 		})
 
 	env.New().BeforeEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
 			// Create a node port traffic local service for pod-1 only
 			// and share the NodePort with all other pods, the test is using
 			// the same port via different nodes IPs (where each pod is scheduled)
@@ -162,7 +162,7 @@ func TestNodePortTrafficLocal(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, nodeLocalFeature.Feature())
 }
 
@@ -186,7 +186,7 @@ func TestLoadBalancer(t *testing.T) {
 		)
 
 	env.New().BeforeEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
 			for _, pod := range pods {
 				var (
 					err     error
@@ -217,7 +217,7 @@ func TestLoadBalancer(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, loadBalancerFeature.Feature())
 }
 
@@ -240,7 +240,7 @@ func TestExternalService(t *testing.T) {
 		)
 
 	env.New().BeforeEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) {
 			ma.Logger.Info("Creating a new external name service batch.")
 			for _, pod := range pods {
 				// Create a kubernetes service based in the service spec
@@ -259,6 +259,6 @@ func TestExternalService(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config, t *testing.T) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, externalSvcFeature.Feature())
 }
