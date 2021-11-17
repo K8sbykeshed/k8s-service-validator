@@ -66,7 +66,7 @@ func TestMain(m *testing.M) {
 			}
 
 			// Initialize environment pods model and cluster.
-			model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, DNS_DOMAIN)
+			model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNS_DOMAIN)
 			if err = ma.InitializeCluster(model, nodes); err != nil {
 				log.Fatal(err)
 			}
@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 			return ctx, nil
 		},
 	).Finish(
-		// Finished cleans up the namespace in the end of the suite.
+		//Finished cleans up the namespace in the end of the suite.
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
 			if err := ma.DeleteNamespaces(namespaces); err != nil {

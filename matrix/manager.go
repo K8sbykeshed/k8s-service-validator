@@ -66,22 +66,6 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 		}
 	}
 
-	for _, podString := range model.AllPodStrings() {
-		kubePod, err := k.getPod(podString.Namespace(), podString.PodName())
-		if err != nil {
-			return err
-		}
-		if kubePod == nil {
-			return errors.Errorf("unable to find pod in ns %s with key/val pod=%s", podString.Namespace(), podString.PodName())
-		}
-
-		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
-		err = k8s.WaitForPodNameRunningInNamespace(k.clientSet, kubePod.Name, kubePod.Namespace)
-		if err != nil {
-			return errors.Wrapf(err, "unable to wait for pod %s/%s", podString.Namespace(), podString.PodName())
-		}
-	}
-
 	pods := model.AllPods()
 	for i, createdPod := range createdPods {
 		kubePod, err := k.getPod(createdPod.Namespace, createdPod.Name)
@@ -140,10 +124,8 @@ func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 	var nodes []*v1.Node
 	for _, node := range kubeNode.Items {
 		for _, cond := range node.Status.Conditions {
-			if cond.Type == v1.NodeReady {
-				if cond.Status == v1.ConditionTrue {
-					nodes = append(nodes, node.DeepCopy())
-				}
+			if cond.Type == v1.NodeReady && cond.Status == v1.ConditionTrue {
+				nodes = append(nodes, node.DeepCopy())
 			}
 		}
 	}

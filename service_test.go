@@ -66,13 +66,21 @@ func TestNodePort(t *testing.T) {
 
 	nodePortFeature := features.New("Node Port").
 		WithLabel("type", "node_port").
-		Assess("the host should reachable on node port", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			reachability := matrix.NewReachability(pods, true)
-			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.NodePort,
+		Assess("the host should reachable on node port TCP and UDP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			reachabilityTCP := matrix.NewReachability(pods, true)
+			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: data.NodePort,
 			}, false)
-			if wrong > 0 {
-				t.Error("Wrong result number ")
+			if wrongTCP > 0 {
+				t.Error("[NodePort TCP] Wrong result number ")
+			}
+
+			reachabilityUDP := matrix.NewReachability(pods, true)
+			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: data.NodePort,
+			}, false)
+			if wrongUDP > 0 {
+				t.Error("[NodePort UDP] Wrong result number ")
 			}
 			return ctx
 		})
