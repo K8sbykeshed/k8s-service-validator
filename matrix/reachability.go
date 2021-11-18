@@ -2,12 +2,12 @@ package matrix
 
 import (
 	"fmt"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
 	v1 "k8s.io/api/core/v1"
 )
 
-// TestCase describes the data for a netpol test
+// TestCase describes the model for a netpol test
 type TestCase struct {
 	ToPort       int
 	Protocol     v1.Protocol
@@ -23,15 +23,15 @@ func (t *TestCase) GetServiceType() string {
 	return t.ServiceType
 }
 
-// Reachability packages the data for a cluster-wide connectivity probe
+// Reachability packages the model for a cluster-wide connectivity probe
 type Reachability struct {
 	Expected *TruthTable
 	Observed *TruthTable
-	Pods     []*data.Pod
+	Pods     []*entities.Pod
 }
 
 // NewReachability instantiates a reachability
-func NewReachability(pods []*data.Pod, defaultExpectation bool) *Reachability {
+func NewReachability(pods []*entities.Pod, defaultExpectation bool) *Reachability {
 	podNames := make([]string, len(pods))
 	for i, pod := range pods {
 		podNames[i] = pod.PodString().String()
@@ -62,7 +62,7 @@ func (r *Reachability) PrintSummary(printExpected, printObserved, printCompariso
 	}
 }
 
-// Summary produces a useful summary of expected and observed data
+// Summary produces a useful summary of expected and observed model
 func (r *Reachability) Summary(ignoreLoopback bool) (trueObs, falseObs, ignoredObs int, comparison *TruthTable) {
 	comparison = r.Expected.Compare(r.Observed)
 	if !comparison.IsComplete() {
@@ -94,7 +94,7 @@ type Peer struct {
 // - an empty namespace means the namespace will always match
 // - otherwise, the namespace must match the PodString's namespace
 // - same goes for Pod: empty matches everything, otherwise must match exactly
-func (p *Peer) Matches(pod data.PodString) bool {
+func (p *Peer) Matches(pod entities.PodString) bool {
 	return (p.Namespace == "" || p.Namespace == pod.Namespace()) && (p.Pod == "" || p.Pod == pod.PodName())
 }
 
@@ -112,6 +112,6 @@ func (r *Reachability) ExpectPeer(from, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod, toPod data.PodString, isConnected bool) {
+func (r *Reachability) Observe(fromPod, toPod entities.PodString, isConnected bool) {
 	r.Observed.Set(string(fromPod), string(toPod), isConnected)
 }
