@@ -15,7 +15,7 @@ const (
 	ExternalName = "externalname"
 	LoadBalancer = "loadbalancer"
 
-	AllProtocal = "allprotocol"
+	Allprotocols = "allprotocols"
 )
 
 // NewService returns the service boilerplate
@@ -38,7 +38,7 @@ func NewService(p *Pod) *v1.Service {
 func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.ServicePort {
 	var portsSet = map[v1.ServicePort]bool{}
 	for _, container := range containers {
-		if protocol != AllProtocal && protocol != container.Protocol {
+		if protocol != Allprotocols && protocol != container.Protocol {
 			continue
 		}
 		sp := v1.ServicePort{
@@ -59,7 +59,7 @@ func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.Servi
 // ClusterIPService returns a kube service spec
 func (p *Pod) ClusterIPService() *v1.Service {
 	service := NewService(p)
-	service.Spec.Ports = portFromContainer(p.Containers, AllProtocal)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
 
@@ -67,7 +67,7 @@ func (p *Pod) ClusterIPService() *v1.Service {
 func (p *Pod) NodePortService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
-	service.Spec.Ports = portFromContainer(p.Containers, AllProtocal)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
 
@@ -94,6 +94,6 @@ func (p *Pod) NodePortLocalService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
 	service.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
-	service.Spec.Ports = portFromContainer(p.Containers, AllProtocal)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
