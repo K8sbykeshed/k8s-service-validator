@@ -219,12 +219,18 @@ func TestLoadBalancer(t *testing.T) {
 
 				// Wait for final status
 				serviceTCP.WaitForEndpoint()
+				if err != nil {
+					return ctx, err
+				}
 				serviceUDP.WaitForEndpoint()
-				ipsForTCP, err := serviceTCP.WaitForExternalIP()
 				if err != nil {
 					return ctx, err
 				}
 
+				ipsForTCP, err := serviceTCP.WaitForExternalIP()
+				if err != nil {
+					return ctx, err
+				}
 				ips = append(ips, data.NewExternalIPs(ipsForTCP, v1.ProtocolTCP)...)
 
 				ipsForUDP, err := serviceUDP.WaitForExternalIP()
@@ -242,7 +248,7 @@ func TestLoadBalancer(t *testing.T) {
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, nil },
+		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
 	).Test(t, loadBalancerFeature.Feature())
 }
 

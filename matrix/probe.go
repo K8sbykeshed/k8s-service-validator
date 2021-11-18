@@ -47,11 +47,18 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		case data.NodePort:
 			addrTo = job.PodTo.GetHostIP()
 		case data.LoadBalancer:
+			var externalIPs []data.ExternalIP
 			if job.Protocol == v1.ProtocolTCP {
-				addrTo = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolTCP)[0].IP
+				externalIPs = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolTCP)
 			} else if job.Protocol == v1.ProtocolUDP {
-				addrTo = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolUDP)[0].IP
+				externalIPs = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolUDP)
 			}
+			// Temporary solution to unblock the tests, load balancer IPs take longer time than expected to get created.
+			// will solve in https://github.com/K8sbykeshed/k8s-service-lb-validator/issues/44
+			if len(externalIPs) > 0 {
+				addrTo = externalIPs[0].IP
+			}
+
 		default:
 			addrTo = job.PodTo.GetPodIP()
 		}
