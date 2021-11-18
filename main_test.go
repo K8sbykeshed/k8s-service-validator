@@ -3,6 +3,7 @@ package suites
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -20,10 +21,9 @@ import (
 const DNS_DOMAIN = "cluster.local"
 
 var (
-
+	namespace string
 	config    *rest.Config
 	testenv   env.Environment
-	namespace string
 	model     *matrix.Model
 	cs        *kubernetes.Clientset
 	ma        *matrix.KubeManager
@@ -32,30 +32,46 @@ var (
 )
 
 func init() {
-	var err error
-	if logger, err = zap.NewProduction(); err != nil {
-		log.Fatal(err)
+	logger = NewLoggerConfig()
+}
+
+func NewLoggerConfig(options ...zap.Option) *zap.Logger {
+	encoderCfg := zapcore.EncoderConfig{
+		MessageKey:     "msg",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		TimeKey:        "timer",
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
 	}
+	// todo(knabben) - flag to enable debugging level
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), os.Stdout, zap.InfoLevel)
+	return zap.New(core).WithOptions(options...)
 }
 
 // TestMain sets the general before/after function hooks
 func TestMain(m *testing.M) {
-	var err   error
-	var nodes []*v1.Node
-
-	namespaces := []string{matrix.GetNamespace()}
+	var (
+		err   error
+		nodes []*v1.Node
+	)
 
 	cs, config = matrix.NewClientSet()
-	// Create a new Manager to control K8S resources.
-	ma = matrix.NewKubeManager(cs, config, logger)
+	cfg, err := envconf.NewFromFlags()
+	if err != nil {
+		log.Fatalf("envconf failed: %s", err)
+	}
 
-	testenv = env.New()
+	testenv = env.NewWithConfig(cfg)
+	ma = matrix.NewKubeManager(cs, config, logger)
+	namespace = matrix.GetNamespace()
+
+	// Setup brings the pods only in the start, all tests share the same pods
+	// access them via different services types.
 	testenv.Setup(
-		// Setup brings the pods only in the start, all tests share the same pods
-		// access them via different services types.
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			var pods []string
-
 			if nodes, err = ma.GetReadyNodes(); err != nil {
 				log.Fatal(err)
 			}
@@ -66,8 +82,8 @@ func TestMain(m *testing.M) {
 			}
 
 			// Initialize environment pods model and cluster.
-			model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNS_DOMAIN)
-			if err = ma.InitializeCluster(model, nodes); err != nil {
+			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNS_DOMAIN)
+			if err = ma.StartPods(model, nodes); err != nil {
 				log.Fatal(err)
 			}
 
@@ -81,7 +97,7 @@ func TestMain(m *testing.M) {
 		// Finished cleans up the namespace in the end of the suite.
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
-			if err := ma.DeleteNamespaces(namespaces); err != nil {
+			if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
 				log.Fatal(err)
 			}
 			return ctx, nil

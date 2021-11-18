@@ -1,18 +1,20 @@
-package data
+package entities
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
-// Pod represents a Pod model
+// Pod represents a Pod in the model view
 type Pod struct {
-	Namespace   string
-	Name        string
-	Containers  []*Container
-	NodeName    string
+	Namespace      string
+	Name           string
+	InitContainers []*Container
+	Containers     []*Container
+	NodeName       string
 	// todo(knabben) add a service data and move ports there.
 	PodIP       string
 	HostIP      string
@@ -95,45 +97,39 @@ func (p *Pod) QualifiedServiceAddress(dnsDomain string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", p.ServiceName(), p.Namespace, dnsDomain)
 }
 
-// ContainerSpecs builds kubernetes container specs for the pod
-func (p *Pod) ContainerSpecs() []v1.Container {
-	containers := make([]v1.Container, len(p.Containers))
-	for i, cont := range p.Containers {
-		containers[i] = cont.Spec()
+// ContainersToK8SSpec builds kubernetes Containers specs for the pod
+func ContainersToK8SSpec(cntrs []*Container) []v1.Container {
+	k8sCntrs := make([]v1.Container, len(cntrs))
+	for i, container := range cntrs {
+		k8sCntrs[i] = container.ToK8SSpec()
 	}
-	return containers
-}
-
-func (p *Pod) labelSelectorKey() string {
-	return "pod"
-}
-
-func (p *Pod) labelSelectorValue() string {
-	return p.Name
+	return k8sCntrs
 }
 
 // LabelSelector returns the default labels that should be placed on a pod/deployment
 // in order for it to be uniquely selectable by label selectors
 func (p *Pod) LabelSelector() map[string]string {
-	return map[string]string{
-		p.labelSelectorKey(): p.labelSelectorValue(),
-	}
+	return map[string]string{"pod": p.Name}
 }
 
-// KubePod returns the kube pod
-func (p *Pod) KubePod() *v1.Pod {
+// ToK8SSpec returns the Kubernetes pod specification
+func (p *Pod) ToK8SSpec() *v1.Pod {
 	zero := int64(0)
+	podSpec := v1.PodSpec{
+		NodeName:                      p.NodeName,
+		Containers:                    ContainersToK8SSpec(p.Containers),
+		TerminationGracePeriodSeconds: &zero,
+	}
+	if p.InitContainers != nil {
+		podSpec.InitContainers = ContainersToK8SSpec(p.InitContainers)
+	}
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      p.Name,
-			Labels:    p.LabelSelector(),
 			Namespace: p.Namespace,
+			Labels:    p.LabelSelector(),
 		},
-		Spec: v1.PodSpec{
-			NodeName:                      p.NodeName,
-			Containers:                    p.ContainerSpecs(),
-			TerminationGracePeriodSeconds: &zero,
-		},
+		Spec: podSpec,
 	}
 }
 
@@ -169,4 +165,3 @@ func (pod PodString) PodName() string {
 	_, podName := pod.split()
 	return podName
 }
-

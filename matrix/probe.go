@@ -1,15 +1,15 @@
 package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
 
-// ProbeJob packages the data for the input of a pod->pod connectivity probe
+// ProbeJob packages the model for the input of a pod->pod connectivity probe
 type ProbeJob struct {
-	PodFrom        *data.Pod
-	PodTo          *data.Pod
+	PodFrom        *entities.Pod
+	PodTo          *entities.Pod
 	ToPort         int
 	ToPodDNSDomain string
 	Protocol       v1.Protocol
@@ -24,7 +24,7 @@ func (p *ProbeJob) GetServiceType() string {
 	return p.ServiceType
 }
 
-// ProbeJobResults packages the data for the results of a pod->pod connectivity probe
+// ProbeJobResults packages the model for the results of a pod->pod connectivity probe
 type ProbeJobResults struct {
 	Job         *ProbeJob
 	IsConnected bool
@@ -40,14 +40,14 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 
 		// Choose the host and port based on service or probing
 		switch job.GetServiceType() {
-		case data.PodIP:
+		case entities.PodIP:
 			addrTo = job.PodTo.GetPodIP()
-		case data.ClusterIP:
+		case entities.ClusterIP:
 			addrTo = job.PodTo.GetPodIP()
-		case data.NodePort:
+		case entities.NodePort:
 			addrTo = job.PodTo.GetHostIP()
-		case data.LoadBalancer:
-			var externalIPs []data.ExternalIP
+		case entities.LoadBalancer:
+			var externalIPs []entities.ExternalIP
 			if job.Protocol == v1.ProtocolTCP {
 				externalIPs = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolTCP)
 			} else if job.Protocol == v1.ProtocolUDP {
@@ -122,7 +122,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			}
 		}
 
-		k8s.Logger.Info(result.Command)
+		k8s.Logger.Debug(result.Command)
 		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 

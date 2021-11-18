@@ -37,7 +37,6 @@ func NewClientSet() (*kubernetes.Clientset, *rest.Config) {
 // ValidateOrFail validates connectivity
 func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLoopback bool) int {
 	var wrong int
-	k8s.Logger.Info("Validating reachability matrix...")
 
 	// 1st try
 	k8s.Logger.Info("Validating reachability matrix... (== FIRST TRY ==)")
@@ -45,7 +44,7 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLo
 
 	// 2nd try, in case first one failed
 	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback); wrong != 0 {
-		k8s.Logger.Info("Retrying (== SECOND TRY ==) - failed first probe with wrong results ... ", zap.Int("wrong", wrong))
+		k8s.Logger.Warn("Retrying (== SECOND TRY ==) - failed first probe with wrong results ... ", zap.Int("wrong", wrong))
 		ProbePodToPodConnectivity(k8s, model, testCase)
 	}
 
@@ -57,7 +56,7 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLo
 	testCase.Reachability.PrintSummary(true, true, true)
 
 	if wrong == 0 {
-		k8s.Logger.Info("VALIDATION SUCCESSFUL")
+		k8s.Logger.Info("Tests passed, validation succeeded!")
 	}
 	return wrong
 }

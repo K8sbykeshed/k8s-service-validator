@@ -15,15 +15,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/objects/data"
-	k8s "github.com/k8sbykeshed/k8s-service-lb-validator/objects/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
+	k8s "github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
 )
 
 const (
 	waitInterval = 1 * time.Second
 )
 
-// KubeManager is the core struct to manage kubernetes objects
+// KubeManager is the core struct to manage kubernetes entities
 type KubeManager struct {
 	config    *rest.Config
 	Logger    *zap.Logger
@@ -35,11 +35,11 @@ func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.L
 	return &KubeManager{clientSet: cs, config: config, Logger: logger}
 }
 
-// InitializeCluster start all pods and wait them to be up
-func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
+// StartPods start all pods and wait them to be up
+func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 	k.Logger.Info("Initializing Pods in the cluster.")
-
 	var createdPods []*v1.Pod
+
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
@@ -53,12 +53,12 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 		for i, pod := range ns.Pods {
 			// Set NodeName on pods being created
 			pod.NodeName = nodes[i].Name
-			k.Logger.Info("creating/updating pod.",
+			k.Logger.Debug("creating/updating pod.",
 				zap.String("namespace", ns.Name),
 				zap.String("name", pod.Name),
 				zap.String("node", pod.NodeName),
 			)
-			kubePod, err := k.createPod(pod.KubePod())
+			kubePod, err := k.createPod(pod.ToK8SSpec())
 			if err != nil {
 				return err
 			}
@@ -72,7 +72,7 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 		if err != nil {
 			return err
 		}
-		k.Logger.Info("Wait for pod running.", zap.String("name", kubePod.Name), zap.String("namespace", kubePod.Namespace))
+		k.Logger.Debug("Wait for pod running.", zap.String("name", createdPod.Name), zap.String("namespace", createdPod.Namespace))
 		if err := k8s.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
 			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
 		}
@@ -84,27 +84,27 @@ func (k *KubeManager) InitializeCluster(model *Model, nodes []*v1.Node) error {
 }
 
 // createPod is a convenience function for pod setup.
-func (k *KubeManager) createPod(pod *v1.Pod) (*v1.Pod, error) {
-	ns := pod.Namespace
-	createdPod, err := k.clientSet.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+func (k *KubeManager) createPod(podSpec *v1.Pod) (*v1.Pod, error) {
+	nsName := podSpec.Namespace
+	pod, err := k.clientSet.CoreV1().Pods(nsName).Create(context.TODO(), podSpec, metav1.CreateOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to update pod %s/%s", ns, pod.Name)
+		return nil, errors.Wrapf(err, "unable to create pod %s/%s", nsName, podSpec.Name)
 	}
-	return createdPod, nil
+	return pod, nil
 }
 
-// CreateNamespace
-func (k *KubeManager) CreateNamespace(ns *v1.Namespace) (*v1.Namespace, error) {
-	createdNamespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
+// CreateNamespace creates a new K8S namespace
+func (k *KubeManager) CreateNamespace(nsSpec *v1.Namespace) (*v1.Namespace, error) {
+	namespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), nsSpec, metav1.CreateOptions{})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to update namespace %s", ns.Name)
+		return nil, errors.Wrapf(err, "unable to update namespace %s", nsSpec.Name)
 	}
-	return createdNamespace, nil
+	return namespace, nil
 }
 
-// DeleteNamespaces
-func (k *KubeManager) DeleteNamespaces(namespaces []string) error {
-	for _, ns := range namespaces {
+// DeleteNamespaces deletes all the namespaces in a list
+func (k *KubeManager) DeleteNamespaces(namespaceNames []string) error {
+	for _, ns := range namespaceNames {
 		err := k.clientSet.CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{})
 		if err != nil {
 			return errors.Wrapf(err, "unable to delete namespace %s", ns)
@@ -143,11 +143,10 @@ func (k *KubeManager) getPod(ns, name string) (*v1.Pod, error) {
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
 func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {
-	port := strconv.Itoa(toPort)
 	var cmd []string
+	port := strconv.Itoa(toPort)
+
 	switch protocol {
-	case v1.ProtocolSCTP:
-		cmd = []string{"/agnhost", "connect", net.JoinHostPort(addrTo, port), "--timeout=5s", "--protocol=sctp"}
 	case v1.ProtocolTCP:
 		cmd = []string{"/agnhost", "connect", net.JoinHostPort(addrTo, port), "--timeout=5s", "--protocol=tcp"}
 	case v1.ProtocolUDP:
@@ -157,7 +156,6 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
-
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
 		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
@@ -182,7 +180,6 @@ func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string,
 
 // WaitForHTTPServers waits for all webservers to be up, on all protocols, and then validates them using the same probe logic as the rest of the suite.
 func (k *KubeManager) WaitForHTTPServers(model *Model) error {
-	const maxTries = 10
 	k.Logger.Info("Waiting for HTTP servers (ports 80 and 81) to become ready")
 
 	testCases := map[string]*TestCase{}
@@ -190,14 +187,16 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		for _, protocol := range model.Protocols {
 			fromPort := 81
 			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
-			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: data.PodIP}
+			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: entities.PodIP}
 		}
 	}
+
 	notReady := map[string]bool{}
 	for caseName := range testCases {
 		notReady[caseName] = true
 	}
 
+	const maxTries = 10
 	for i := 0; i < maxTries; i++ {
 		for caseName, testCase := range testCases {
 			if notReady[caseName] {
