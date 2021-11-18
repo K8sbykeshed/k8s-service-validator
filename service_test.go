@@ -3,6 +3,7 @@ package suites
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
@@ -19,24 +20,30 @@ func TestBasicService(t *testing.T) {
 
 	featureClusterIP := features.New("ClusterIP").WithLabel("type", "cluster_ip").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
 				clusterSvc := pod.ClusterIPService()
 
 				// Create a kubernetes service based in the service spec
-				var service kubernetes.ServiceBase
-				service = kubernetes.NewService(cs, clusterSvc)
+				var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
 				if _, err := service.Create(); err != nil {
 					t.Fatal(err)
 				}
 
 				// Wait for final status
-				service.WaitForEndpoint()
+				result, err := service.WaitForEndpoint()
+				if err != nil || !result {
+					t.Fatal(errors.New("no endpoint available"))
+				}
 				services = append(services, service.(*kubernetes.Service))
 			}
+			ma.Logger.Info(fmt.Sprintf("%v",services))
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services.Delete()
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
 			return ctx
 		}).
 		Assess("should be reachable.", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -52,18 +59,21 @@ func TestBasicService(t *testing.T) {
 
 	featureNodePort := features.New("NodePort").WithLabel("type", "node_port").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
 				clusterSvc := pod.NodePortService()
 
 				// Create a kubernetes service based in the service spec
-				var service kubernetes.ServiceBase
-				service = kubernetes.NewService(cs, clusterSvc)
+				var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
 				if _, err := service.Create(); err != nil {
 					t.Fatal(err)
 				}
 
 				// Wait for final status
-				service.WaitForEndpoint()
+				result, err := service.WaitForEndpoint()
+				if err != nil || !result {
+					t.Fatal(errors.New("no endpoint available"))
+				}
 				nodePort, err := service.WaitForNodePort()
 				if err != nil {
 					t.Fatal(err)
@@ -76,7 +86,9 @@ func TestBasicService(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services.Delete()
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
 			return ctx
 		}).
 		Assess("should reachable on node port TCP and UDP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -102,6 +114,7 @@ func TestBasicService(t *testing.T) {
 
 	featureLoadBalancer := features.New("LoadBalancer").WithLabel("type", "load_balancer").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
 				var (
 					err error
@@ -118,13 +131,14 @@ func TestBasicService(t *testing.T) {
 				}
 
 				// Wait for final status
-				serviceTCP.WaitForEndpoint()
-				if err != nil {
-					t.Fatal(err)
+				result, err := serviceTCP.WaitForEndpoint()
+				if err != nil || !result {
+					t.Fatal(errors.New("no endpoint available"))
 				}
-				serviceUDP.WaitForEndpoint()
-				if err != nil {
-					t.Fatal(err)
+
+				result, err = serviceUDP.WaitForEndpoint()
+				if err != nil || !result {
+					t.Fatal(errors.New("no endpoint available"))
 				}
 
 				ipsForTCP, err := serviceTCP.WaitForExternalIP()
@@ -152,7 +166,9 @@ func TestBasicService(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services.Delete()
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
 			return ctx
 		}).
 		Assess("should be reachable via node IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -192,15 +208,18 @@ func TestExternalService(t *testing.T) {
 	// the same port via different nodes IPs (where each pod is scheduled)
 	featureNodeLocal := features.New("NodePort Traffic Local").WithLabel("type", "node_port_traffic_local").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			// Create a kubernetes service based in the service spec
-			var service kubernetes.ServiceBase
-			service = kubernetes.NewService(cs, pods[0].NodePortLocalService())
+			var service kubernetes.ServiceBase = kubernetes.NewService(cs, pods[0].NodePortLocalService())
 			if _, err := service.Create(); err != nil {
 				t.Fatal(err)
 			}
 
 			// Wait for final status
-			service.WaitForEndpoint()
+			result, err := service.WaitForEndpoint()
+			if err != nil || !result {
+				t.Fatal(errors.New("no endpoint available"))
+			}
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
 				t.Fatal(err)
@@ -214,7 +233,9 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services.Delete()
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
 			return ctx
 		}).
 		Assess("should be reachable", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -232,10 +253,10 @@ func TestExternalService(t *testing.T) {
 
 	featureExternal := features.New("External Service").WithLabel("type", "external").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
 				// Create a kubernetes service based in the service spec
-				var service kubernetes.ServiceBase
-				service = kubernetes.NewService(cs, pod.ExternalNameService(domain))
+				var service kubernetes.ServiceBase = kubernetes.NewService(cs, pod.ExternalNameService(domain))
 				if _, err := service.Create(); err != nil {
 					t.Fatal(err)
 				}
@@ -249,7 +270,9 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services.Delete()
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
 			return ctx
 		}).
 		Assess("should be reachable", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

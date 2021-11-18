@@ -50,7 +50,6 @@ func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.P
 
 			}
 			pods = append(pods, &entities.Pod{Namespace: ns, Name: podName, Containers: containers})
-
 		}
 		namespaces = append(namespaces, &entities.Namespace{Name: ns, Pods: pods})
 	}
