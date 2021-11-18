@@ -27,8 +27,10 @@ type Services []*Service
 // Delete delete all services in the list
 func (s Services) Delete() error {
 	for _, svc := range s {
-		if err := svc.Delete(); err != nil {
-			return err
+		if svc != nil {
+			if err := svc.Delete(); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -83,9 +85,10 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 					return true, nil
 				}
 			}
+		case <-time.After(waitTime):
+			return false, nil
 		}
 	}
-	return false, nil
 }
 
 func (s *Service) WaitForNodePort() (int32, error) {
@@ -112,7 +115,6 @@ func (s *Service) WaitForNodePort() (int32, error) {
 			return nodePort, nil
 		}
 	}
-	return nodePort, nil
 }
 
 func (s *Service) WaitForExternalIP() ([]string, error) {
@@ -135,5 +137,4 @@ func (s *Service) WaitForExternalIP() ([]string, error) {
 			return ips, nil
 		}
 	}
-	return ips, nil
 }

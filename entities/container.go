@@ -7,7 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-const AGNHOST_IMAGE = "k8s.gcr.io/e2e-test-images/agnhost:2.31"
+const AgnhostImage = "k8s.gcr.io/e2e-test-images/agnhost:2.31"
 
 // Container represents the container model
 type Container struct {
@@ -54,7 +54,7 @@ func (c *Container) ToK8SSpec() v1.Container {
 	// it must have a container/port tuple per container
 	return v1.Container{
 		Name:            c.Name(),
-		Image:           AGNHOST_IMAGE,
+		Image:           AgnhostImage,
 		ImagePullPolicy: v1.PullIfNotPresent,
 		Ports: []v1.ContainerPort{
 			{

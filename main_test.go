@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
-	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"testing"
 
 	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
@@ -16,9 +15,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	"sigs.k8s.io/e2e-framework/pkg/env"
+	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
-const DNS_DOMAIN = "cluster.local"
+const DNSDomain = "cluster.local"
 
 var (
 	namespace string
@@ -82,7 +82,7 @@ func TestMain(m *testing.M) {
 			}
 
 			// Initialize environment pods model and cluster.
-			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNS_DOMAIN)
+			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNSDomain)
 			if err = ma.StartPods(model, nodes); err != nil {
 				log.Fatal(err)
 			}
