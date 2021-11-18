@@ -14,13 +14,18 @@ const (
 	NodePort     = "nodeport"
 	ExternalName = "externalname"
 	LoadBalancer = "loadbalancer"
+
+	Allprotocols = "allprotocols"
 )
 
 // NewService returns the service boilerplate
+// serviceID prevent conflicts when creating multiple services for same pod
+var serviceID int
 func NewService(p *Pod) *v1.Service {
+	serviceID++
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      p.ServiceName(),
+			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), serviceID),
 			Namespace: p.Namespace,
 		},
 		Spec: v1.ServiceSpec{
@@ -30,23 +35,31 @@ func NewService(p *Pod) *v1.Service {
 }
 
 // portFromContainer is a helper to return port spec from the service
-func portFromContainer(containers []*Container) []v1.ServicePort {
-	servicesPort := make([]v1.ServicePort, len(containers))
-	for i, container := range containers {
+func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.ServicePort {
+	var portsSet = map[v1.ServicePort]bool{}
+	for _, container := range containers {
+		if protocol != Allprotocols && protocol != container.Protocol {
+			continue
+		}
 		sp := v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(container.Protocol)), container.Port),
 			Protocol: container.Protocol,
 			Port:     container.Port,
 		}
-		servicesPort[i] = sp
+		portsSet[sp] = true
 	}
-	return servicesPort
+
+	var ports []v1.ServicePort
+	for p, _ := range portsSet {
+		ports = append(ports, p)
+	}
+	return ports
 }
 
 // ClusterIPService returns a kube service spec
 func (p *Pod) ClusterIPService() *v1.Service {
 	service := NewService(p)
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
 
@@ -54,7 +67,7 @@ func (p *Pod) ClusterIPService() *v1.Service {
 func (p *Pod) NodePortService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
 
@@ -66,11 +79,11 @@ func (p *Pod) ExternalNameService(domain string) *v1.Service {
 	return service
 }
 
-// LoadBalancerService returns a new Load balancer service.
-func (p *Pod) LoadBalancerService() *v1.Service {
+// LoadBalancerService returns a new Load balancer service based on protocol.
+func (p *Pod) LoadBalancerServiceByProtocol(protocol v1.Protocol) *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeLoadBalancer
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.Ports = portFromContainer(p.Containers, protocol)
 	return service
 }
 
@@ -81,6 +94,6 @@ func (p *Pod) NodePortLocalService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
 	service.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
-	service.Spec.Ports = portFromContainer(p.Containers)
+	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }

@@ -66,7 +66,7 @@ func TestMain(m *testing.M) {
 			}
 
 			// Initialize environment pods model and cluster.
-			model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP}, DNS_DOMAIN)
+			model = matrix.NewModel(namespaces, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNS_DOMAIN)
 			if err = ma.InitializeCluster(model, nodes); err != nil {
 				log.Fatal(err)
 			}
