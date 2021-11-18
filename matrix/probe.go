@@ -47,7 +47,11 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		case data.NodePort:
 			addrTo = job.PodTo.GetHostIP()
 		case data.LoadBalancer:
-			addrTo = job.PodTo.GetExternalIP()
+			if job.Protocol == v1.ProtocolTCP {
+				addrTo = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolTCP)[0].IP
+			} else if job.Protocol == v1.ProtocolUDP {
+				addrTo = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolUDP)[0].IP
+			}
 		default:
 			addrTo = job.PodTo.GetPodIP()
 		}

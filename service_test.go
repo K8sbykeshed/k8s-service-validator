@@ -182,50 +182,67 @@ func TestLoadBalancer(t *testing.T) {
 	loadBalancerFeature := features.New("Load Balancer").
 		WithLabel("type", "load_balancer").
 		Assess("load balancer should be reachable via external ip", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			reachability := matrix.NewReachability(pods, true)
-			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: data.LoadBalancer,
+			reachabilityTCP := matrix.NewReachability(pods, true)
+			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: data.LoadBalancer,
 			}, false)
-			if wrong > 0 {
-				t.Error("Wrong result number ")
+			if wrongTCP > 0 {
+				t.Error("[Load Balancer TCP] Wrong result number ")
+			}
+
+			reachabilityUDP := matrix.NewReachability(pods, true)
+			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: data.LoadBalancer,
+			}, false)
+			if wrongUDP > 0 {
+				t.Error("[Load Balancer UDP] Wrong result number ")
 			}
 			return ctx
-		},
-		)
+		})
 
 	env.New().BeforeEachTest(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
 			for _, pod := range pods {
 				var (
 					err     error
-					ips     []string
-					service kubernetes.ServiceBase
+					ips     []data.ExternalIP
 				)
-				// Create a kubernetes service based in the service spec
-				service = kubernetes.NewService(cs, pod.LoadBalancerService())
-				if _, err := service.Create(); err != nil {
+				// Create a load balancers with TCP/UDP ports, based in the service spec
+				serviceTCP := kubernetes.NewService(cs, pod.LoadBalancerServiceByProtocol(v1.ProtocolTCP))
+				if _, err := serviceTCP.Create(); err != nil {
+					return ctx, err
+				}
+				serviceUDP := kubernetes.NewService(cs, pod.LoadBalancerServiceByProtocol(v1.ProtocolUDP))
+				if _, err := serviceUDP.Create(); err != nil {
 					return ctx, err
 				}
 
 				// Wait for final status
-				service.WaitForEndpoint()
-
-				ips, err = service.WaitForExternalIP()
+				serviceTCP.WaitForEndpoint()
+				serviceUDP.WaitForEndpoint()
+				ipsForTCP, err := serviceTCP.WaitForExternalIP()
 				if err != nil {
 					return ctx, err
 				}
 
+				ips = append(ips, data.NewExternalIPs(ipsForTCP, v1.ProtocolTCP)...)
+
+				ipsForUDP, err := serviceUDP.WaitForExternalIP()
+				if err != nil {
+					return ctx, err
+				}
+				ips = append(ips, data.NewExternalIPs(ipsForUDP, v1.ProtocolUDP)...)
+
 				// Set pod specification on data model
 				pod.SetToPort(80)
-				for _, ip := range ips {
-					pod.SetExternalIP(ip)
-				}
-				services = append(services, service.(*kubernetes.Service))
+				pod.SetExternalIPs(ips)
+				services = append(services, serviceTCP)
+				services = append(services, serviceUDP)
 			}
 			return ctx, nil
 		},
 	).AfterEachTest(
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, services.Delete() },
+		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) { return ctx, nil },
 	).Test(t, loadBalancerFeature.Feature())
 }
 

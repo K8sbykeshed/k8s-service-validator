@@ -9,15 +9,32 @@ import (
 
 // Pod represents a Pod model
 type Pod struct {
-	Namespace  string
-	Name       string
-	Containers []*Container
-	NodeName   string
+	Namespace   string
+	Name        string
+	Containers  []*Container
+	NodeName    string
 	// todo(knabben) add a service data and move ports there.
-	PodIP      string
-	HostIP     string
-	ExternalIP string
-	ToPort     int32
+	PodIP       string
+	HostIP      string
+	ExternalIPs []ExternalIP
+	ToPort      int32
+}
+
+type ExternalIP struct {
+	IP       string
+	Protocol v1.Protocol
+}
+
+func NewExternalIP(ip string, protocol v1.Protocol) ExternalIP {
+	return ExternalIP{IP: ip, Protocol: protocol}
+}
+
+func NewExternalIPs(ips []string, protocol v1.Protocol) []ExternalIP {
+	var externalIPs []ExternalIP
+	for _, ip := range ips {
+		externalIPs = append(externalIPs, NewExternalIP(ip, protocol))
+	}
+	return externalIPs
 }
 
 func (p *Pod) GetToPort() int32 {
@@ -44,12 +61,22 @@ func (p *Pod) SetPodIP(podIP string) {
 	p.PodIP = podIP
 }
 
-func (p *Pod) GetExternalIP() string {
-	return p.ExternalIP
+func (p *Pod) GetExternalIPs() []ExternalIP {
+	return p.ExternalIPs
 }
 
-func (p *Pod) SetExternalIP(externalIP string) {
-	p.ExternalIP = externalIP
+func (p *Pod) GetExternalIPsByProtocol(protocol v1.Protocol) []ExternalIP {
+	var ips []ExternalIP
+	for _, ip := range p.ExternalIPs {
+		if ip.Protocol == protocol {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
+}
+
+func (p *Pod) SetExternalIPs(externalIPs []ExternalIP) {
+	p.ExternalIPs = externalIPs
 }
 
 // PodString returns a corresponding pod string
