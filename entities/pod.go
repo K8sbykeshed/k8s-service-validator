@@ -22,15 +22,18 @@ type Pod struct {
 	ToPort      int32
 }
 
+// ExternalIP defines the struct of pod's external IP, which can be used to access from outside of node
 type ExternalIP struct {
 	IP       string
 	Protocol v1.Protocol
 }
 
+// NewExternalIP creates ExternalIP based on ip address and protocol
 func NewExternalIP(ip string, protocol v1.Protocol) ExternalIP {
 	return ExternalIP{IP: ip, Protocol: protocol}
 }
 
+// NewExternalIPs creates array of ExternalIP based on array of IP addresses which share same protocol
 func NewExternalIPs(ips []string, protocol v1.Protocol) []ExternalIP {
 	var externalIPs []ExternalIP
 	for _, ip := range ips {
@@ -39,34 +42,42 @@ func NewExternalIPs(ips []string, protocol v1.Protocol) []ExternalIP {
 	return externalIPs
 }
 
+// GetToPort returns the ToPort for the pod, which used to access the pod
 func (p *Pod) GetToPort() int32 {
 	return p.ToPort
 }
 
+// SetToPort sets the ToPort for the pod
 func (p *Pod) SetToPort(toPort int32) {
 	p.ToPort = toPort
 }
 
+// GetHostIP returns the HoseIP of the pod
 func (p *Pod) GetHostIP() string {
 	return p.HostIP
 }
 
+// SetHostIP sets the HostIP for the pod
 func (p *Pod) SetHostIP(hostIP string) {
 	p.HostIP = hostIP
 }
 
+// GetPodIP returns PodIP for the pod
 func (p *Pod) GetPodIP() string {
 	return p.PodIP
 }
 
+// SetPodIP sets the PodIP for the pod
 func (p *Pod) SetPodIP(podIP string) {
 	p.PodIP = podIP
 }
 
+// GetExternalIPs returns the array of ExternalIP for the pod
 func (p *Pod) GetExternalIPs() []ExternalIP {
 	return p.ExternalIPs
 }
 
+// GetExternalIPsByProtocol returns the ExternalIPs of the pod with the desired protocol ports
 func (p *Pod) GetExternalIPsByProtocol(protocol v1.Protocol) []ExternalIP {
 	var ips []ExternalIP
 	for _, ip := range p.ExternalIPs {
@@ -77,6 +88,7 @@ func (p *Pod) GetExternalIPsByProtocol(protocol v1.Protocol) []ExternalIP {
 	return ips
 }
 
+// SetExternalIPs sets the array of ExternalIPs for the pod
 func (p *Pod) SetExternalIPs(externalIPs []ExternalIP) {
 	p.ExternalIPs = externalIPs
 }
@@ -91,8 +103,7 @@ func (p *Pod) ServiceName() string {
 	return fmt.Sprintf("s-%s-%s", p.Namespace, p.Name)
 }
 
-// QualifiedServiceAddress returns the address that can be used to hit a service from
-// any namespace in the cluster
+// QualifiedServiceAddress returns the address that can be used to hit a service from any namespace in the cluster
 func (p *Pod) QualifiedServiceAddress(dnsDomain string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", p.ServiceName(), p.Namespace, dnsDomain)
 }

@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Constants for services
 const (
 	PodIP        = "podip"
 	ClusterIP    = "clusteip"
@@ -18,9 +19,9 @@ const (
 	Allprotocols = "allprotocols"
 )
 
-// NewService returns the service boilerplate
 // serviceID prevent conflicts when creating multiple services for same pod
 var serviceID int
+// NewService returns the service boilerplate
 func NewService(p *Pod) *v1.Service {
 	serviceID++
 	return &v1.Service{
@@ -50,7 +51,7 @@ func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.Servi
 	}
 
 	var ports []v1.ServicePort
-	for p, _ := range portsSet {
+	for p := range portsSet {
 		ports = append(ports, p)
 	}
 	return ports
@@ -63,7 +64,7 @@ func (p *Pod) ClusterIPService() *v1.Service {
 	return service
 }
 
-// NodePortService returns a new node port service.
+// NodePortService returns a new node port service
 func (p *Pod) NodePortService() *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeNodePort
@@ -71,7 +72,7 @@ func (p *Pod) NodePortService() *v1.Service {
 	return service
 }
 
-// ExternalNameService returns a new external name service.
+// ExternalNameService returns a new external name service
 func (p *Pod) ExternalNameService(domain string) *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeExternalName
@@ -79,7 +80,7 @@ func (p *Pod) ExternalNameService(domain string) *v1.Service {
 	return service
 }
 
-// LoadBalancerService returns a new Load balancer service based on protocol.
+// LoadBalancerServiceByProtocol returns a new Load balancer service based on protocol
 func (p *Pod) LoadBalancerServiceByProtocol(protocol v1.Protocol) *v1.Service {
 	service := NewService(p)
 	service.Spec.Type = v1.ServiceTypeLoadBalancer

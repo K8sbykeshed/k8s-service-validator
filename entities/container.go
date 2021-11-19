@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+// AgnhostImage is the image reference
 const AgnhostImage = "k8s.gcr.io/e2e-test-images/agnhost:2.31"
 
 // Container represents the container model
