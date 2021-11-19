@@ -16,10 +16,12 @@ type ProbeJob struct {
 	ServiceType    string
 }
 
+// SetServiceType sets the ServiceType for the probeJob
 func (p *ProbeJob) SetServiceType(serviceType string) {
 	p.ServiceType = serviceType
 }
 
+// GetServiceType returns ServiceType for the probeJob
 func (p *ProbeJob) GetServiceType() string {
 	return p.ServiceType
 }

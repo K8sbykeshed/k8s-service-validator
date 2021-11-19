@@ -5,6 +5,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+// Model defines the model for cluster data
 type Model struct {
 	Namespaces     []*entities.Namespace
 	allPodStrings  *[]entities.PodString

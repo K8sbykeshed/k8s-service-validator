@@ -22,6 +22,7 @@ type ServiceBase interface {
 	WaitForExternalIP() ([]string, error)
 }
 
+// Services defines an array of Service
 type Services []*Service
 
 // Delete delete all services in the list
@@ -36,11 +37,13 @@ func (s Services) Delete() error {
 	return nil
 }
 
+// Service defines the structure of a service
 type Service struct {
 	service   *v1.Service
 	clientSet *kubernetes.Clientset
 }
 
+// NewService constructs a Service
 func NewService(client *kubernetes.Clientset, service *v1.Service) *Service {
 	return &Service{
 		service:   service,
@@ -91,6 +94,7 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 	}
 }
 
+// WaitForNodePort returns the NodePort number, by pausing the process until time out or NodePort is created
 func (s *Service) WaitForNodePort() (int32, error) {
 	var nodePort int32
 	opts := metav1.ListOptions{}
@@ -117,6 +121,7 @@ func (s *Service) WaitForNodePort() (int32, error) {
 	}
 }
 
+// WaitForExternalIP pause the process until timeout and returns the array of ExteranlIP
 func (s *Service) WaitForExternalIP() ([]string, error) {
 	var ips []string
 	opts := metav1.ListOptions{}

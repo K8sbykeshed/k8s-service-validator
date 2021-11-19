@@ -15,10 +15,12 @@ type TestCase struct {
 	ServiceType  string
 }
 
+// SetServiceType sets serviceType for the testCase
 func (t *TestCase) SetServiceType(serviceType string) {
 	t.ServiceType = serviceType
 }
 
+// GetServiceType returns ServiceType for the testCase
 func (t *TestCase) GetServiceType() string {
 	return t.ServiceType
 }
