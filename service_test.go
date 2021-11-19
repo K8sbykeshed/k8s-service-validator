@@ -46,12 +46,24 @@ func TestBasicService(t *testing.T) {
 			}
 			return ctx
 		}).
-		Assess("should be reachable.", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Starting ClusterIP")
-			reachability := matrix.NewReachability(pods, true)
-			testCase := matrix.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP}
-			wrong := matrix.ValidateOrFail(ma, model, &testCase, false)
-			if wrong > 0 {
+		Assess("should be reachable via cluster IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ma.Logger.Info("Creating ClusterIP with ports in TCP and UDP.")
+			ma.Logger.Info("Testing ClusterIP with TCP protocol.")
+			reachabilityTCP := matrix.NewReachability(pods, true)
+			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.ClusterIP,
+			}, false)
+			if wrongTCP > 0 {
+				t.Error("Wrong result number ")
+			}
+			return ctx
+
+			ma.Logger.Info("Testing ClusterIP with UDP protocol.")
+			reachabilityUDP := matrix.NewReachability(pods, true)
+			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
+			}, false)
+			if wrongUDP > 0 {
 				t.Error("Wrong result number ")
 			}
 			return ctx
@@ -79,7 +91,7 @@ func TestBasicService(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				// Set pod specification on model model
+				// Set pod specification on entity model
 				pod.SetToPort(nodePort)
 				services = append(services, service.(*kubernetes.Service))
 			}
@@ -92,7 +104,8 @@ func TestBasicService(t *testing.T) {
 			return ctx
 		}).
 		Assess("should reachable on node port TCP and UDP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			t.Log("Starting TCP NodePort service.")
+			ma.Logger.Info("Creating NodePort service with ports in TCP and UDP.")
+			ma.Logger.Info("Testing NodePort with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
@@ -101,7 +114,7 @@ func TestBasicService(t *testing.T) {
 				t.Error("[NodePort TCP] Wrong result number ")
 			}
 
-			t.Log("Starting UDP NodePort service.")
+			ma.Logger.Info("Testing NodePort with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
@@ -157,7 +170,7 @@ func TestBasicService(t *testing.T) {
 					t.Fatal(errors.New("invalid external UDP IPs setup"))
 				}
 
-				// Set pod specification on data model
+				// Set pod specification on entity model
 				pod.SetToPort(80)
 				pod.SetExternalIPs(ips)
 				services = append(services, serviceTCP)
@@ -171,8 +184,8 @@ func TestBasicService(t *testing.T) {
 			}
 			return ctx
 		}).
-		Assess("should be reachable via node IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			t.Log("NodePort TCP Loadbalancer tests")
+		Assess("should be reachable via load balancer", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ma.Logger.Info("Creating load balancer with TCP protocol")
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.LoadBalancer,
@@ -181,7 +194,7 @@ func TestBasicService(t *testing.T) {
 				t.Error("[Load Balancer TCP] Wrong result number")
 			}
 
-			t.Log("NodePort UDP Loadbalancer tests")
+			ma.Logger.Info("Creating Loadbalancer with UDP protocol")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.LoadBalancer,
@@ -225,7 +238,7 @@ func TestExternalService(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// Set pod specification on model model
+			// Set pod specification on entity model
 			for _, pod := range pods {
 				pod.SetToPort(nodePort)
 			}
@@ -238,14 +251,25 @@ func TestExternalService(t *testing.T) {
 			}
 			return ctx
 		}).
-		Assess("should be reachable", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating ExternalTrafficPolicy=local")
-			reachability := matrix.NewReachability(pods, false)
-			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
-			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.NodePort,
+		Assess("should be reachable via NodePortLocal k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ma.Logger.Info("Creating ExternalTrafficPolicy=locali with ports in TCP and UDP")
+			ma.Logger.Info("Testing NodePortLocal with TCP protocol.")
+			reachabilityTCP := matrix.NewReachability(pods, false)
+			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
+			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
 			}, true)
-			if wrong > 0 {
+			if wrongTCP > 0 {
+				t.Error("Wrong result number ")
+			}
+
+			ma.Logger.Info("Testing NodePortLocal with UDP protocol.")
+			reachabilityUDP := matrix.NewReachability(pods, false)
+			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
+			wrongUDP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
+			}, true)
+			if wrongUDP > 0 {
 				t.Error("Wrong result number ")
 			}
 			return ctx
@@ -275,7 +299,7 @@ func TestExternalService(t *testing.T) {
 			}
 			return ctx
 		}).
-		Assess("should be reachable", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		Assess("should be reachable via ExternalName k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			ma.Logger.Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
