@@ -112,6 +112,7 @@ func (s *Service) WaitForNodePort() (int32, error) {
 				for _, port := range svc.Spec.Ports {
 					if port.NodePort != 0 {
 						nodePort = port.NodePort
+						return nodePort, nil
 					}
 				}
 			}
