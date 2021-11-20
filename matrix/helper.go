@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -59,4 +61,23 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLo
 		k8s.Logger.Info("Tests passed, validation succeeded!")
 	}
 	return wrong
+}
+
+// todo(knabben) - make a generic in slice contains function
+func protocolOnSlice(value v1.Protocol, slice []v1.Protocol) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+func intOnSlice(value int32, slice []int32) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }

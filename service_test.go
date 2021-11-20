@@ -3,18 +3,18 @@ package suites
 import (
 	"context"
 	"errors"
-	"fmt"
+	"testing"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
-	"testing"
 )
 
 // TestBasicService starts up the basic Kubernetes services available
-func TestBasicService(t *testing.T) {
+func TestBasicService(t *testing.T) { // nolint
 	pods := model.AllPods()
 	var services kubernetes.Services
 
@@ -22,22 +22,28 @@ func TestBasicService(t *testing.T) {
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
-				clusterSvc := pod.ClusterIPService()
-
+				var (
+					err       error
+					result    bool
+					clusterIP string
+				)
 				// Create a kubernetes service based in the service spec
+				clusterSvc := pod.ClusterIPService()
 				var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
 				if _, err := service.Create(); err != nil {
 					t.Fatal(err)
 				}
 
-				// Wait for final status
-				result, err := service.WaitForEndpoint()
-				if err != nil || !result {
+				// wait for final status
+				if result, err = service.WaitForEndpoint(); err != nil || !result {
 					t.Fatal(errors.New("no endpoint available"))
 				}
+				if clusterIP, err = service.WaitForClusterIP(); err != nil || clusterIP == "" {
+					t.Fatal(errors.New("no cluster IP available"))
+				}
+				pod.SetClusterIP(clusterIP)
 				services = append(services, service.(*kubernetes.Service))
 			}
-			ma.Logger.Info(fmt.Sprintf("%v",services))
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
@@ -56,7 +62,6 @@ func TestBasicService(t *testing.T) {
 			if wrongTCP > 0 {
 				t.Error("Wrong result number ")
 			}
-			return ctx
 
 			ma.Logger.Info("Testing ClusterIP with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
@@ -173,8 +178,8 @@ func TestBasicService(t *testing.T) {
 				// Set pod specification on entity model
 				pod.SetToPort(80)
 				pod.SetExternalIPs(ips)
-				services = append(services, serviceTCP)
-				services = append(services, serviceUDP)
+
+				services = append(services, serviceTCP, serviceUDP)
 			}
 			return ctx
 		}).
@@ -281,14 +286,12 @@ func TestExternalService(t *testing.T) {
 			for _, pod := range pods {
 				// Create a kubernetes service based in the service spec
 				var service kubernetes.ServiceBase = kubernetes.NewService(cs, pod.ExternalNameService(domain))
-				if _, err := service.Create(); err != nil {
+				k8sSvc, err := service.Create()
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				// Wait for final status
-				if _, err := service.WaitForExternalIP(); err != nil {
-					t.Fatal(err)
-				}
+				pod.SetServiceName(k8sSvc.Name)
 				services = append(services, service.(*kubernetes.Service))
 			}
 			return ctx
@@ -303,7 +306,7 @@ func TestExternalService(t *testing.T) {
 			ma.Logger.Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")

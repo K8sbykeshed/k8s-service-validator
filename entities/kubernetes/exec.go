@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	poll = 10 * time.Second
+	poll    = 10 * time.Second
+	timeout = 1 * time.Minute
 )
 
 var errPodCompleted = fmt.Errorf("pod ran to completion")
@@ -30,7 +31,6 @@ func WaitForPodRunningInNamespace(c *kubernetes.Clientset, pod *v1.Pod) error {
 	if pod.Status.Phase == v1.PodRunning {
 		return nil
 	}
-	timeout := 5 * time.Minute
 	return wait.PollImmediate(poll, timeout, podRunning(c, pod.Name, pod.Namespace))
 }
 
@@ -74,7 +74,7 @@ type ExecOptions struct {
 // ExecWithOptions executes a command in the specified container,
 // returning stdout, stderr and error. `options` allowed for
 // additional parameters to be passed.
-func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) {
+func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) {  // nolint
 	tty := false
 	req := cs.CoreV1().RESTClient().Post().
 		Resource("pods").

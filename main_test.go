@@ -3,14 +3,15 @@ package suites
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
 	"testing"
 
+	"go.uber.org/zap/zapcore"
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
 	"go.uber.org/zap"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -18,7 +19,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 )
 
-const DNSDomain = "cluster.local"
+const dnsDomain = "cluster.local"
 
 var (
 	namespace string
@@ -46,7 +47,7 @@ func NewLoggerConfig(options ...zap.Option) *zap.Logger {
 		EncodeDuration: zapcore.StringDurationEncoder,
 	}
 	// todo(knabben) - flag to enable debugging level
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), os.Stdout, zap.InfoLevel)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), os.Stdout, zap.DebugLevel)
 	return zap.New(core).WithOptions(options...)
 }
 
@@ -82,7 +83,7 @@ func TestMain(m *testing.M) {
 			}
 
 			// Initialize environment pods model and cluster.
-			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, DNSDomain)
+			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, dnsDomain)
 			if err = ma.StartPods(model, nodes); err != nil {
 				log.Fatal(err)
 			}

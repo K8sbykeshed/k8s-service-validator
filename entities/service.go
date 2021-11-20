@@ -21,6 +21,7 @@ const (
 
 // serviceID prevent conflicts when creating multiple services for same pod
 var serviceID int
+
 // NewService returns the service boilerplate
 func NewService(p *Pod) *v1.Service {
 	serviceID++
@@ -37,7 +38,7 @@ func NewService(p *Pod) *v1.Service {
 
 // portFromContainer is a helper to return port spec from the service
 func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.ServicePort {
-	var portsSet = map[v1.ServicePort]bool{}
+	portsSet := map[v1.ServicePort]bool{}
 	for _, container := range containers {
 		if protocol != Allprotocols && protocol != container.Protocol {
 			continue
@@ -50,7 +51,7 @@ func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.Servi
 		portsSet[sp] = true
 	}
 
-	var ports []v1.ServicePort
+	var ports []v1.ServicePort  // nolint
 	for p := range portsSet {
 		ports = append(ports, p)
 	}
