@@ -40,14 +40,26 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 	for job := range jobs {
 		var addrTo string
 
+		if job.PodTo.SkipProbe {
+			results <- &ProbeJobResults{
+				Job:         job,
+				IsConnected: true,
+				Err:         nil,
+				Command:     "skip",
+			}
+			return
+		}
+
 		// Choose the host and port based on service or probing
 		switch job.GetServiceType() {
 		case entities.PodIP:
 			addrTo = job.PodTo.GetPodIP()
 		case entities.ClusterIP:
-			addrTo = job.PodTo.GetPodIP()
+			addrTo = job.PodTo.GetClusterIP()
 		case entities.NodePort:
 			addrTo = job.PodTo.GetHostIP()
+		case entities.ExternalName:
+			addrTo = job.PodTo.GetServiceName()
 		case entities.LoadBalancer:
 			var externalIPs []entities.ExternalIP
 			if job.Protocol == v1.ProtocolTCP {
@@ -67,7 +79,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 
 		podFrom := job.PodFrom
 		connected, command, err := manager.probeConnectivity(
-			podFrom.Namespace, podFrom.Name, podFrom.Containers[0].Name(), addrTo, job.Protocol, job.ToPort,
+			podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
 		)
 
 		result := &ProbeJobResults{
@@ -103,7 +115,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 				PodFrom:        podFrom,
 				PodTo:          podTo,
 				ToPort:         toPort,
-				ToPodDNSDomain: model.DNSDomain,
+				ToPodDNSDomain: model.dnsDomain,
 				Protocol:       testCase.Protocol,
 				ServiceType:    testCase.ServiceType,
 			}
@@ -115,7 +127,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 		result := <-results
 		job := result.Job
 		if result.Err != nil {
-			k8s.Logger.Warn("Unable to perform probe.",
+			k8s.Logger.Error("Unable to perform probe.",
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
 			)
@@ -124,17 +136,27 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			}
 		}
 
-		k8s.Logger.Debug(result.Command)
+		fields := []zap.Field{
+			zap.String("from", string(job.PodFrom.PodString())),
+			zap.String("to", string(job.PodTo.PodString())),
+			zap.String("cmd", result.Command),
+		}
+		if job.PodTo.SkipProbe {
+			k8s.Logger.Debug("Skipping probe", fields...)
+		} else {
+			k8s.Logger.Debug("Probing.", fields...)
+		}
+
 		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {
-			k8s.Logger.Warn("Validation FAILED!",
+			k8s.Logger.Error("Validation FAILED!",
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
 			)
 			if result.Err != nil {
-				k8s.Logger.Warn("ERROR", zap.String("err", result.Err.Error()))
+				k8s.Logger.Error("ERROR", zap.String("err", result.Err.Error()))
 			}
 			if expected {
 				k8s.Logger.Warn("Expected allowed pod connection was instead BLOCKED", zap.String("result", result.Command))

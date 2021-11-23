@@ -9,17 +9,19 @@ import (
 )
 
 // Pod represents a Pod in the model view
-type Pod struct {
+type Pod struct { // nolint
 	Namespace      string
 	Name           string
+	NodeName       string
 	InitContainers []*Container
 	Containers     []*Container
-	NodeName       string
-	// todo(knabben) add a service data and move ports there.
-	PodIP       string
-	HostIP      string
-	ExternalIPs []ExternalIP
-	ToPort      int32
+	ExternalIPs    []ExternalIP
+	SkipProbe      bool
+	serviceName    string
+	clusterIP      string
+	PodIP          string
+	HostIP         string
+	ToPort         int32
 }
 
 // ExternalIP defines the struct of pod's external IP, which can be used to access from outside of node
@@ -35,9 +37,9 @@ func NewExternalIP(ip string, protocol v1.Protocol) ExternalIP {
 
 // NewExternalIPs creates array of ExternalIP based on array of IP addresses which share same protocol
 func NewExternalIPs(ips []string, protocol v1.Protocol) []ExternalIP {
-	var externalIPs []ExternalIP
-	for _, ip := range ips {
-		externalIPs = append(externalIPs, NewExternalIP(ip, protocol))
+	externalIPs := make([]ExternalIP, len(ips))
+	for i := range externalIPs {
+		externalIPs[i] = NewExternalIP(ips[i], protocol)
 	}
 	return externalIPs
 }
@@ -62,7 +64,24 @@ func (p *Pod) SetHostIP(hostIP string) {
 	p.HostIP = hostIP
 }
 
-// GetPodIP returns PodIP for the pod
+// GetClusterIP returns PodIP for the pod
+func (p *Pod) GetClusterIP() string {
+	return p.clusterIP
+}
+
+func (p *Pod) SetClusterIP(clusterIP string) {
+	p.clusterIP = clusterIP
+}
+
+// GetServiceName returns PodIP for the pod
+func (p *Pod) GetServiceName() string {
+	return p.serviceName
+}
+
+func (p *Pod) SetServiceName(serviceName string) {
+	p.serviceName = serviceName
+}
+
 func (p *Pod) GetPodIP() string {
 	return p.PodIP
 }
@@ -158,7 +177,7 @@ func (pod PodString) Namespace() string {
 	return ns
 }
 
-func (pod PodString) split() (string, string) {
+func (pod PodString) split() (string, string) { // nolint
 	pieces := strings.Split(string(pod), "/")
 	if len(pieces) != 2 {
 		fmt.Println(fmt.Printf("expected ns/pod, found %+v", pieces))

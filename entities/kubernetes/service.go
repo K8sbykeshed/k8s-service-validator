@@ -2,21 +2,24 @@ package kubernetes
 
 import (
 	"context"
+	"time"
+
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"time"
 )
 
 const (
-	waitTime = 3 * time.Second
+	waitTime = 15 * time.Second
 )
 
 // ServiceBase contains the abstract implementation required for a service.
 type ServiceBase interface {
 	Create() (*v1.Service, error)
 	Delete() error
+	GetClusterIP() string
+	WaitForClusterIP() (string, error)
 	WaitForNodePort() (int32, error)
 	WaitForEndpoint() (bool, error)
 	WaitForExternalIP() ([]string, error)
@@ -71,6 +74,11 @@ func (s *Service) Delete() error {
 	return nil
 }
 
+// GetClusterIP returns the clusterIP from spec
+func (s *Service) GetClusterIP() string {
+	return s.service.Spec.ClusterIP
+}
+
 // WaitForEndpoint return when all addresses are ready.
 func (s *Service) WaitForEndpoint() (bool, error) {
 	opts := metav1.ListOptions{}
@@ -82,7 +90,7 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 	for {
 		select {
 		case event := <-endpointWatch.ResultChan():
-			endpoint := event.Object.(*v1.Endpoints)
+			endpoint := event.Object.(*v1.Endpoints)  // nolint
 			for _, subset := range endpoint.Subsets {
 				if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 					return true, nil
@@ -94,7 +102,28 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 	}
 }
 
-// WaitForNodePort returns the NodePort number, by pausing the process until time out or NodePort is created
+// WaitForClusterIP returns the NodePort number, by pausing the process until time out or NodePort is created
+func (s *Service) WaitForClusterIP() (string, error) {
+	opts := metav1.ListOptions{}
+	serviceWatch, err := s.clientSet.CoreV1().Services(s.service.Namespace).Watch(context.TODO(), opts)
+	defer serviceWatch.Stop()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		select {
+		case event := <-serviceWatch.ResultChan():
+			svc := event.Object.(*v1.Service)  // nolint
+			if svc.Name == s.service.Name && svc.Spec.ClusterIP != "" {
+				return svc.Spec.ClusterIP, nil
+			}
+		case <-time.After(waitTime):
+			return "", nil
+		}
+	}
+}
+
 func (s *Service) WaitForNodePort() (int32, error) {
 	var nodePort int32
 	opts := metav1.ListOptions{}
@@ -107,7 +136,7 @@ func (s *Service) WaitForNodePort() (int32, error) {
 	for {
 		select {
 		case event := <-serviceWatch.ResultChan():
-			svc := event.Object.(*v1.Service)
+			svc := event.Object.(*v1.Service)  // nolint
 			if svc.Name == s.service.Name {
 				for _, port := range svc.Spec.Ports {
 					if port.NodePort != 0 {
@@ -133,7 +162,7 @@ func (s *Service) WaitForExternalIP() ([]string, error) {
 	for {
 		select {
 		case event := <-serviceWatch.ResultChan():
-			svc := event.Object.(*v1.Service)
+			svc := event.Object.(*v1.Service)  // nolint
 			if svc.Name == s.service.Name {
 				for _, ip := range svc.Status.LoadBalancer.Ingress {
 					ips = append(ips, ip.IP)

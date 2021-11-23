@@ -7,37 +7,22 @@ import (
 
 // Model defines the model for cluster data
 type Model struct {
-	Namespaces     []*entities.Namespace
-	allPodStrings  *[]entities.PodString
-	allPods        *[]*entities.Pod
-	NamespaceNames []string
-	PodNames       []string
-	Ports          []int32
-	Protocols      []v1.Protocol
-	DNSDomain      string
+	pods      *[]*entities.Pod // cache for pods, automatically filled
+	ports     *[]int32         // cache for ports, automatically filled
+	protocols *[]v1.Protocol   // cache for protocols, automatically filled
+
+	Namespaces []*entities.Namespace
+	dnsDomain  string
 }
 
-// AllPodStrings returns a slice of all pod strings
-func (m *Model) AllPodStrings() []entities.PodString {
-	if m.allPodStrings == nil {
-		var pods []entities.PodString
-		for _, ns := range m.Namespaces {
-			for _, pod := range ns.Pods {
-				pods = append(pods, pod.PodString())
-			}
-		}
-		m.allPodStrings = &pods
-	}
-	return *m.allPodStrings
-}
-
-// NewModel returns the Model used to be probed
+// NewModel construct a Model struct used on probing and reachability comparison
 func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string) *Model {
-	var namespaces []*entities.Namespace
-
 	// build the entire "model" for the overall test, which means, building
-	// namespaces, pods, containers for each protocol.
-	for _, ns := range namespaceNames {
+	// namespaces, pods, containers for each protocol`.
+
+	namespaces := make([]*entities.Namespace, len(namespaceNames))
+	for i := range namespaces {
+		ns := namespaceNames[i]
 		var pods []*entities.Pod
 		for _, podName := range podNames {
 			var containers []*entities.Container
@@ -48,30 +33,65 @@ func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.P
 						Protocol: protocol,
 					})
 				}
-
 			}
 			pods = append(pods, &entities.Pod{Namespace: ns, Name: podName, Containers: containers})
 		}
-		namespaces = append(namespaces, &entities.Namespace{Name: ns, Pods: pods})
+		namespaces[i] = &entities.Namespace{Name: ns, Pods: pods}
 	}
 	return &Model{
-		PodNames:       podNames,
-		Ports:          ports,
-		Protocols:      protocols,
-		DNSDomain:      dnsDomain,
-		Namespaces:     namespaces,
-		NamespaceNames: namespaceNames,
+		Namespaces: namespaces,
+		dnsDomain:  dnsDomain,
+	}
+}
+
+func extractPortProtocols(namespaces []*entities.Namespace) ([]int32, []v1.Protocol) {
+	var (
+		ports     []int32
+		protocols []v1.Protocol
+	)
+	for _, ns := range namespaces {
+		for _, pod := range ns.Pods {
+			for _, container := range pod.Containers {
+				if container.Port != 0 && !intOnSlice(container.Port, ports) {
+					ports = append(ports, container.Port)
+				}
+				if container.Protocol != "" && !protocolOnSlice(container.Protocol, protocols) {
+					protocols = append(protocols, container.Protocol)
+				}
+			}
+		}
+	}
+	return ports, protocols
+}
+
+// NewModelWithNamespace returns a new Model based on existent namespaces
+func NewModelWithNamespace(namespaces []*entities.Namespace, dnsDomain string) *Model {
+	ports, protocols := extractPortProtocols(namespaces)
+	return &Model{
+		ports:      &ports,
+		protocols:  &protocols,
+		dnsDomain:  dnsDomain,
+		Namespaces: namespaces,
 	}
 }
 
 // AllPods returns a slice of all pods
 func (m *Model) AllPods() []*entities.Pod {
-	if m.allPods == nil {
+	if m.pods == nil {
 		var pods []*entities.Pod
 		for _, ns := range m.Namespaces {
 			pods = append(pods, ns.Pods...)
 		}
-		m.allPods = &pods
+		m.pods = &pods
 	}
-	return *m.allPods
+	return *m.pods
+}
+
+// AllPortsProtocol returns a tuple of slices of all ports and protocols
+func (m *Model) AllPortsProtocol() ([]int32, []v1.Protocol) {
+	if m.ports == nil && m.protocols == nil {
+		ports, protocols := extractPortProtocols(m.Namespaces)
+		m.ports, m.protocols = &ports, &protocols
+	}
+	return *m.ports, *m.protocols
 }

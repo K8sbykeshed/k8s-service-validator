@@ -38,8 +38,6 @@ func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.L
 // StartPods start all pods and wait them to be up
 func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 	k.Logger.Info("Initializing Pods in the cluster.")
-	var createdPods []*v1.Pod
-
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
@@ -58,33 +56,42 @@ func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 				zap.String("name", pod.Name),
 				zap.String("node", pod.NodeName),
 			)
-			kubePod, err := k.createPod(pod.ToK8SSpec())
-			if err != nil {
+			if _, err := k.CreatePod(pod.ToK8SSpec()); err != nil {
 				return err
 			}
-			createdPods = append(createdPods, kubePod)
 		}
 	}
-
-	pods := model.AllPods()
-	for i, createdPod := range createdPods {
-		kubePod, err := k.getPod(createdPod.Namespace, createdPod.Name)
-		if err != nil {
+	// waiting for pods running.
+	for _, createdPod := range model.AllPods() {
+		if err := k.WaitAndSetIPs(createdPod); err != nil {
 			return err
 		}
-		k.Logger.Debug("Wait for pod running.", zap.String("name", createdPod.Name), zap.String("namespace", createdPod.Namespace))
-		if err := k8s.WaitForPodRunningInNamespace(k.clientSet, createdPod); err != nil {
-			return errors.Wrapf(err, "unable to wait for pod %s/%s", createdPod.Namespace, createdPod.Name)
-		}
-		// Set IP addresses on Pod model.
-		pods[i].SetPodIP(kubePod.Status.PodIP)
-		pods[i].SetHostIP(kubePod.Status.HostIP)
 	}
 	return nil
 }
 
-// createPod is a convenience function for pod setup.
-func (k *KubeManager) createPod(podSpec *v1.Pod) (*v1.Pod, error) {
+// WaitAndSetIPs wait for running pods and set internal pod and host IP addresses.
+func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
+	var err error
+
+	kubePod := modelPod.ToK8SSpec()
+	k.Logger.Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
+
+	if err := k8s.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
+		return errors.Wrapf(err, "unable to wait for pod %s/%s", modelPod.Namespace, modelPod.Name)
+	}
+	if kubePod, err = k.GetPod(modelPod.Namespace, modelPod.Name); err != nil {
+		return err
+	}
+
+	// Set IP addresses on Pod model.
+	modelPod.SetPodIP(kubePod.Status.PodIP)
+	modelPod.SetHostIP(kubePod.Status.HostIP)
+	return nil
+}
+
+// CreatePod is a convenience function for pod setup.
+func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 	nsName := podSpec.Namespace
 	pod, err := k.clientSet.CoreV1().Pods(nsName).Create(context.TODO(), podSpec, metav1.CreateOptions{})
 	if err != nil {
@@ -122,7 +129,7 @@ func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 
 	// filter in the ready nodes.
 	var nodes []*v1.Node
-	for _, node := range kubeNode.Items {
+	for _, node := range kubeNode.Items { // nolint
 		for _, cond := range node.Status.Conditions {
 			if cond.Type == v1.NodeReady && cond.Status == v1.ConditionTrue {
 				nodes = append(nodes, node.DeepCopy())
@@ -132,8 +139,8 @@ func (k *KubeManager) GetReadyNodes() ([]*v1.Node, error) {
 	return nodes, nil
 }
 
-// getPod gets a pod by namespace and name.
-func (k *KubeManager) getPod(ns, name string) (*v1.Pod, error) {
+// GetPod gets a pod by namespace and name.
+func (k *KubeManager) GetPod(ns, name string) (*v1.Pod, error) {
 	kubePod, err := k.clientSet.CoreV1().Pods(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get pod %s/%s", ns, name)
@@ -142,7 +149,7 @@ func (k *KubeManager) getPod(ns, name string) (*v1.Pod, error) {
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {
+func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {  // nolint
 	var cmd []string
 	port := strconv.Itoa(toPort)
 
@@ -165,7 +172,7 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
-func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {
+func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {  // nolint
 	return k8s.ExecWithOptions(k.config, k.clientSet, &k8s.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
@@ -183,8 +190,10 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 	k.Logger.Info("Waiting for HTTP servers (ports 80 and 81) to become ready")
 
 	testCases := map[string]*TestCase{}
-	for _, port := range model.Ports {
-		for _, protocol := range model.Protocols {
+	ports, protocols := model.AllPortsProtocol()
+
+	for _, port := range ports {
+		for _, protocol := range protocols {
 			fromPort := 81
 			desc := fmt.Sprintf("%d->%d,%s", fromPort, port, protocol)
 			testCases[desc] = &TestCase{ToPort: int(port), Protocol: protocol, ServiceType: entities.PodIP}
@@ -199,17 +208,18 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 	const maxTries = 10
 	for i := 0; i < maxTries; i++ {
 		for caseName, testCase := range testCases {
-			if notReady[caseName] {
-				reachability := NewReachability(model.AllPods(), true)
-				testCase.Reachability = reachability
-				ProbePodToPodConnectivity(k, model, testCase)
-				_, wrong, _, _ := reachability.Summary(false)
-				if wrong == 0 {
-					k.Logger.Info("Server is ready", zap.String("case", caseName))
-					delete(notReady, caseName)
-				} else {
-					k.Logger.Info("Server is not ready", zap.String("case", caseName))
-				}
+			if !notReady[caseName] {
+				continue
+			}
+			reachability := NewReachability(model.AllPods(), true)
+			testCase.Reachability = reachability
+			ProbePodToPodConnectivity(k, model, testCase)
+			_, wrong, _, _ := reachability.Summary(false)
+			if wrong == 0 {
+				k.Logger.Info("Server is ready", zap.String("case", caseName))
+				delete(notReady, caseName)
+			} else {
+				k.Logger.Info("Server is not ready", zap.String("case", caseName))
 			}
 		}
 		if len(notReady) == 0 {
