@@ -51,7 +51,7 @@ func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.Servi
 		portsSet[sp] = true
 	}
 
-	var ports []v1.ServicePort  // nolint
+	var ports []v1.ServicePort // nolint
 	for p := range portsSet {
 		ports = append(ports, p)
 	}

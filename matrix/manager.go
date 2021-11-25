@@ -100,6 +100,15 @@ func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 	return pod, nil
 }
 
+// DeletePod deletes pod from a namespace
+func (k *KubeManager) DeletePod(podName, namespaceName string) error {
+	err := k.clientSet.CoreV1().Pods(namespaceName).Delete(context.TODO(), podName, metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "unable to delete pod %s/%s", namespaceName, podName)
+	}
+	return nil
+}
+
 // CreateNamespace creates a new K8S namespace
 func (k *KubeManager) CreateNamespace(nsSpec *v1.Namespace) (*v1.Namespace, error) {
 	namespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), nsSpec, metav1.CreateOptions{})
@@ -149,7 +158,7 @@ func (k *KubeManager) GetPod(ns, name string) (*v1.Pod, error) {
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) {  // nolint
+func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
 	var cmd []string
 	port := strconv.Itoa(toPort)
 
@@ -172,7 +181,7 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
-func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) {  // nolint
+func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) { // nolint
 	return k8s.ExecWithOptions(k.config, k.clientSet, &k8s.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,

@@ -90,7 +90,7 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 	for {
 		select {
 		case event := <-endpointWatch.ResultChan():
-			endpoint := event.Object.(*v1.Endpoints)  // nolint
+			endpoint := event.Object.(*v1.Endpoints) // nolint
 			for _, subset := range endpoint.Subsets {
 				if len(subset.Addresses) > 0 && len(subset.NotReadyAddresses) == 0 {
 					return true, nil
@@ -102,7 +102,7 @@ func (s *Service) WaitForEndpoint() (bool, error) {
 	}
 }
 
-// WaitForClusterIP returns the NodePort number, by pausing the process until time out or NodePort is created
+// WaitForClusterIP returns the NodePort number, by pausing the process until timeout or ClusterIP is created
 func (s *Service) WaitForClusterIP() (string, error) {
 	opts := metav1.ListOptions{}
 	serviceWatch, err := s.clientSet.CoreV1().Services(s.service.Namespace).Watch(context.TODO(), opts)
@@ -114,7 +114,7 @@ func (s *Service) WaitForClusterIP() (string, error) {
 	for {
 		select {
 		case event := <-serviceWatch.ResultChan():
-			svc := event.Object.(*v1.Service)  // nolint
+			svc := event.Object.(*v1.Service) // nolint
 			if svc.Name == s.service.Name && svc.Spec.ClusterIP != "" {
 				return svc.Spec.ClusterIP, nil
 			}
@@ -124,6 +124,7 @@ func (s *Service) WaitForClusterIP() (string, error) {
 	}
 }
 
+// WaitForNodePort returns nodePort, by pausing the process until timeout nodePort is created
 func (s *Service) WaitForNodePort() (int32, error) {
 	var nodePort int32
 	opts := metav1.ListOptions{}
@@ -136,7 +137,7 @@ func (s *Service) WaitForNodePort() (int32, error) {
 	for {
 		select {
 		case event := <-serviceWatch.ResultChan():
-			svc := event.Object.(*v1.Service)  // nolint
+			svc := event.Object.(*v1.Service) // nolint
 			if svc.Name == s.service.Name {
 				for _, port := range svc.Spec.Ports {
 					if port.NodePort != 0 {
@@ -162,7 +163,7 @@ func (s *Service) WaitForExternalIP() ([]string, error) {
 	for {
 		select {
 		case event := <-serviceWatch.ResultChan():
-			svc := event.Object.(*v1.Service)  // nolint
+			svc := event.Object.(*v1.Service) // nolint
 			if svc.Name == s.service.Name {
 				for _, ip := range svc.Status.LoadBalancer.Ingress {
 					ips = append(ips, ip.IP)
