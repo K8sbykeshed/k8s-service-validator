@@ -53,7 +53,6 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should be reachable via cluster IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating ClusterIP with ports in TCP and UDP.")
 			ma.Logger.Info("Testing ClusterIP with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
@@ -109,7 +108,6 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should reachable on node port TCP and UDP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating NodePort service with ports in TCP and UDP.")
 			ma.Logger.Info("Testing NodePort with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			wrongTCP := matrix.ValidateOrFail(ma, model, &matrix.TestCase{

@@ -9,10 +9,10 @@ NOCOLOR:=\\033[0m
 ##@ Build
 
 test: ## Runs tests locally
-	go test -v ./...
+	go test -v ./tests
 
 build: ## Build tests in a binary
-	go test -v -c -o svc-test .
+	go test -v -c -o svc-test ./tests
 
 
 ##@ Verify

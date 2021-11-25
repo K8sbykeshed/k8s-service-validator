@@ -1,6 +1,8 @@
 package matrix
 
 import (
+	"fmt"
+
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 	v1 "k8s.io/api/core/v1"
 )
@@ -94,4 +96,36 @@ func (m *Model) AllPortsProtocol() ([]int32, []v1.Protocol) {
 		m.ports, m.protocols = &ports, &protocols
 	}
 	return *m.ports, *m.protocols
+}
+
+// AddPod adds pod into the cluster model
+func (m *Model) AddPod(pod *entities.Pod, namespaceName string) {
+	*m.pods = append(*m.pods, pod)
+
+	for _, ns := range m.Namespaces {
+		if ns.Name == namespaceName {
+			ns.Pods = append(ns.Pods, pod)
+		}
+	}
+}
+
+// RemovePod removes pod from the cluster model
+func (m *Model) RemovePod(podName, namespaceName string) error {
+	foundNamespace := false
+	for i, n := range m.Namespaces {
+		if n.Name == namespaceName {
+			m.Namespaces = append(m.Namespaces[:i], m.Namespaces[i+1:]...)
+			foundNamespace = true
+		}
+	}
+
+	if foundNamespace {
+		for i, p := range *m.pods {
+			if p.Name == podName {
+				*m.pods = append((*m.pods)[:i], (*m.pods)[i+1:]...)
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("failed to find pod %s/%s", namespaceName, podName)
 }

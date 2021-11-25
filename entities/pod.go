@@ -22,6 +22,7 @@ type Pod struct { // nolint
 	PodIP          string
 	HostIP         string
 	ToPort         int32
+	HostNetwork    bool
 }
 
 // ExternalIP defines the struct of pod's external IP, which can be used to access from outside of node
@@ -69,6 +70,7 @@ func (p *Pod) GetClusterIP() string {
 	return p.clusterIP
 }
 
+// SetClusterIP sets clusterIP for the pod
 func (p *Pod) SetClusterIP(clusterIP string) {
 	p.clusterIP = clusterIP
 }
@@ -78,10 +80,12 @@ func (p *Pod) GetServiceName() string {
 	return p.serviceName
 }
 
+// SetServiceName sets serviceName for the pod
 func (p *Pod) SetServiceName(serviceName string) {
 	p.serviceName = serviceName
 }
 
+// GetPodIP returns IP for the pod
 func (p *Pod) GetPodIP() string {
 	return p.PodIP
 }
@@ -149,10 +153,12 @@ func (p *Pod) ToK8SSpec() *v1.Pod {
 		NodeName:                      p.NodeName,
 		Containers:                    ContainersToK8SSpec(p.Containers),
 		TerminationGracePeriodSeconds: &zero,
+		HostNetwork:                   p.HostNetwork,
 	}
 	if p.InitContainers != nil {
 		podSpec.InitContainers = ContainersToK8SSpec(p.InitContainers)
 	}
+
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      p.Name,

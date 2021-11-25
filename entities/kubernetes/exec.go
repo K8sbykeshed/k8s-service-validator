@@ -74,7 +74,7 @@ type ExecOptions struct {
 // ExecWithOptions executes a command in the specified container,
 // returning stdout, stderr and error. `options` allowed for
 // additional parameters to be passed.
-func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) {  // nolint
+func ExecWithOptions(config *rest.Config, cs *kubernetes.Clientset, options *ExecOptions) (string, string, error) { // nolint
 	tty := false
 	req := cs.CoreV1().RESTClient().Post().
 		Resource("pods").
