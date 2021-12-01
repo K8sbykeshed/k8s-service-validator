@@ -1,4 +1,4 @@
-package suites
+package tests
 
 import (
 	"context"
@@ -92,8 +92,7 @@ func TestBasicService(t *testing.T) { // nolint
 			}
 
 			// wait for final status
-			_, err := service.WaitForEndpoint()
-			if err != nil {
+			if _, err := service.WaitForEndpoint(); err != nil {
 				t.Fatal(err)
 			}
 
