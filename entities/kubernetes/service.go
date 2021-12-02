@@ -21,6 +21,7 @@ type ServiceBase interface {
 	GetClusterIP() string
 	GetLabel(string) (string, error)
 	SetLabel(string, string) error
+	RemoveLabel(string) error
 	WaitForClusterIP() (string, error)
 	WaitForNodePort() (int32, error)
 	WaitForEndpoint() (bool, error)
