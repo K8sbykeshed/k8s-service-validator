@@ -17,4 +17,4 @@ jobs:
       - run: |
           ./hack/install_metallb.sh
       - run: |
-          go test -v ./...
+          go test -v ./tests
