@@ -58,7 +58,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 			addrTo = job.PodTo.GetClusterIP()
 		case entities.NodePort:
 			addrTo = job.PodTo.GetHostIP()
-		case entities.ExternalName:
+		case entities.ServiceName:
 			addrTo = job.PodTo.GetServiceName()
 		case entities.LoadBalancer:
 			var externalIPs []entities.ExternalIP

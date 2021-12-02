@@ -3,6 +3,7 @@ package entities
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,25 +14,50 @@ const (
 	PodIP        = "podip"
 	ClusterIP    = "clusteip"
 	NodePort     = "nodeport"
-	ExternalName = "externalname"
+	ServiceName  = "servicename"
 	LoadBalancer = "loadbalancer"
 
 	Allprotocols = "allprotocols"
 )
 
+type Service struct {
+	Name      string
+	Namespace string
+	Selector  map[string]string
+}
+
 // serviceID prevent conflicts when creating multiple services for same pod
-var serviceID int
+var svcID *ServiceID
+
+type ServiceID struct {
+	mu sync.Mutex
+	ID int
+}
 
 // NewService returns the service boilerplate
 func NewService(p *Pod) *v1.Service {
-	serviceID++
+	IncreaseServiceID()
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), serviceID),
+			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), svcID.ID),
 			Namespace: p.Namespace,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: p.LabelSelector(),
+		},
+	}
+}
+
+// NewService returns the service boilerplate based on service template
+func NewServiceFromTemplate(t Service) *v1.Service {
+	IncreaseServiceID()
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
+			Namespace: t.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Selector: t.Selector,
 		},
 	}
 }
@@ -98,4 +124,13 @@ func (p *Pod) NodePortLocalService() *v1.Service {
 	service.Spec.ExternalTrafficPolicy = v1.ServiceExternalTrafficPolicyTypeLocal
 	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
+}
+
+func IncreaseServiceID() {
+	if svcID == nil {
+		svcID = &ServiceID{}
+	}
+	svcID.mu.Lock()
+	defer svcID.mu.Unlock()
+	svcID.ID++
 }

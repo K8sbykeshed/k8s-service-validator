@@ -1,8 +1,10 @@
-package suites
+package tests
 
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
@@ -68,6 +70,54 @@ func TestBasicService(t *testing.T) { // nolint
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
 			}, false)
 			if wrongUDP > 0 {
+				t.Error("Wrong result number ")
+			}
+			return ctx
+		}).Feature()
+
+	// Test endless service
+	featureEndlessService := features.New("EndlessService").WithLabel("type", "cluster_ip_endless").
+		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			var endlessServicePort int32 = 80
+			// Create a service with no endpoints
+			clusterSvc := entities.NewServiceFromTemplate(entities.Service{Name: "endless", Namespace: namespace})
+			clusterSvc.Spec.Ports = []v1.ServicePort{{
+				Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(v1.ProtocolTCP)), endlessServicePort),
+				Protocol: v1.ProtocolTCP,
+				Port:     endlessServicePort,
+			}}
+			var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
+			if _, err := service.Create(); err != nil {
+				t.Fatal(err)
+			}
+
+			// wait for final status
+			if _, err := service.WaitForEndpoint(); err != nil {
+				t.Fatal(err)
+			}
+
+			for _, pod := range pods {
+				pod.SetServiceName(clusterSvc.Name)
+				pod.SetToPort(endlessServicePort)
+			}
+
+			services = append(services, service.(*kubernetes.Service))
+			return ctx
+		}).
+		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			if err := services.Delete(); err != nil {
+				t.Fatal(err)
+			}
+			return ctx
+		}).
+		Assess("should be reachable via cluster IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ma.Logger.Info("Testing Endless service.")
+			reachability := matrix.NewReachability(model.AllPods(), true)
+			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace}, false)
+			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+			}, false)
+			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}
 			return ctx
@@ -208,7 +258,7 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer)
+	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer, featureEndlessService)
 }
 
 func TestExternalService(t *testing.T) {
@@ -304,7 +354,7 @@ func TestExternalService(t *testing.T) {
 			ma.Logger.Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
