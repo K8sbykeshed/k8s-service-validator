@@ -21,4 +21,4 @@ jobs:
           kubectl wait --for=condition=ready -n kube-system -l k8s-app=calico-node pods --timeout=60s
           ./hack/install_metallb.sh
       - run: |
-          go test -v ./...
+          go test -v ./tests
