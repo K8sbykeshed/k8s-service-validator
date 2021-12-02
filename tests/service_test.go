@@ -115,7 +115,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace}, false)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -161,7 +161,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: pods[0].Name}, true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -400,7 +400,7 @@ func TestExternalService(t *testing.T) {
 			ma.Logger.Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
