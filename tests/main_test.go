@@ -1,4 +1,4 @@
-package suites
+package tests
 
 import (
 	"context"
