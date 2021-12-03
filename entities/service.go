@@ -14,7 +14,7 @@ const (
 	PodIP        = "podip"
 	ClusterIP    = "clusteip"
 	NodePort     = "nodeport"
-	ServiceName  = "servicename"
+	ExternalName = "externalname"
 	LoadBalancer = "loadbalancer"
 
 	Allprotocols = "allprotocols"
