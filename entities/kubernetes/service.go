@@ -19,6 +19,9 @@ type ServiceBase interface {
 	Create() (*v1.Service, error)
 	Delete() error
 	GetClusterIP() string
+	GetLabel(string) (string, error)
+	SetLabel(string, string) error
+	RemoveLabel(string) error
 	WaitForClusterIP() (string, error)
 	WaitForNodePort() (int32, error)
 	WaitForEndpoint() (bool, error)
@@ -77,6 +80,60 @@ func (s *Service) Delete() error {
 // GetClusterIP returns the clusterIP from spec
 func (s *Service) GetClusterIP() string {
 	return s.service.Spec.ClusterIP
+}
+
+// GetLabel returns the value of label specified with key. ErrLabelNotFound if not present.
+func (s *Service) GetLabel(key string) (value string, err error) {
+	labels := s.service.ObjectMeta.Labels
+	if labels == nil {
+		return "", ErrLabelNotFound
+	}
+	value, ok := labels[key]
+	if !ok {
+		return "", ErrLabelNotFound
+	}
+	return value, nil
+}
+
+// SetLabel updates the value of label specified by key. Else if key does not exist,
+// create the key-value pair.
+func (s *Service) SetLabel(key, value string) error {
+	var err error
+	if s.service, err = s.clientSet.CoreV1().Services(s.service.Namespace).Get(context.TODO(), s.service.Name, metav1.GetOptions{}); err != nil {
+		return errors.Wrapf(err, "unable to get service %s", s.service.Name)
+	}
+	labels := s.service.ObjectMeta.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[key] = value
+	s.service.ObjectMeta.Labels = labels
+	if _, err = s.clientSet.CoreV1().Services(s.service.Namespace).Update(context.TODO(), s.service, metav1.UpdateOptions{}); err != nil {
+		return errors.Wrapf(err, "unable to update service %s", s.service.Name)
+	}
+	return nil
+}
+
+// RemoveLabel removes the label specified by key. ErrLabelNotFound if not present.
+func (s *Service) RemoveLabel(key string) error {
+	var err error
+	if s.service, err = s.clientSet.CoreV1().Services(s.service.Namespace).Get(context.TODO(), s.service.Name, metav1.GetOptions{}); err != nil {
+		return errors.Wrapf(err, "unable to get service %s", s.service.Name)
+	}
+	labels := s.service.ObjectMeta.Labels
+	if labels == nil {
+		return ErrLabelNotFound
+	}
+	if _, ok := labels[key]; !ok {
+		return ErrLabelNotFound
+	}
+	delete(labels, key)
+	s.service.ObjectMeta.Labels = labels
+	opts := metav1.UpdateOptions{}
+	if _, err := s.clientSet.CoreV1().Services(s.service.Namespace).Update(context.TODO(), s.service, opts); err != nil {
+		return errors.Wrapf(err, "unable to update service %s", s.service.Name)
+	}
+	return nil
 }
 
 // WaitForEndpoint return when all addresses are ready.
