@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
-	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"

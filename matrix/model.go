@@ -3,7 +3,7 @@ package matrix
 import (
 	"fmt"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	v1 "k8s.io/api/core/v1"
 )
 
