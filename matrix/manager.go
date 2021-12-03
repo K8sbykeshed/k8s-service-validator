@@ -15,8 +15,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
-	k8s "github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
+	k8s "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 )
 
 const (

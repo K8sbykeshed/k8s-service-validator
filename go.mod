@@ -1,4 +1,4 @@
-module github.com/k8sbykeshed/k8s-service-lb-validator
+module github.com/k8sbykeshed/k8s-service-validator
 
 go 1.17
 
