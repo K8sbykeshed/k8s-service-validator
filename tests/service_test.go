@@ -92,16 +92,17 @@ func TestBasicService(t *testing.T) { // nolint
 			}
 
 			// wait for final status
-			if _, err := service.WaitForEndpoint(); err != nil {
-				t.Fatal(err)
+			clusterIP, err := service.WaitForClusterIP()
+			if err != nil || clusterIP == "" {
+				t.Fatal(errors.New("no cluster IP available"))
 			}
 
 			for _, pod := range pods {
-				pod.SetServiceName(clusterSvc.Name)
+				pod.SetClusterIP(clusterIP)
 				pod.SetToPort(endlessServicePort)
 			}
 
-			services = append(services, service.(*kubernetes.Service))
+			services = []*kubernetes.Service{service.(*kubernetes.Service)}
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
@@ -110,12 +111,12 @@ func TestBasicService(t *testing.T) { // nolint
 			}
 			return ctx
 		}).
-		Assess("should be reachable via cluster IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		Assess("should not be reachable via endless service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			ma.Logger.Info("Testing Endless service.")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace}, false)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -147,7 +148,7 @@ func TestBasicService(t *testing.T) { // nolint
 			pods[0].SetServiceName(clusterSvc.Name)
 			pods[0].SetToPort(pods[0].Containers[0].Port)
 
-			services = append(services, service.(*kubernetes.Service))
+			services = []*kubernetes.Service{service.(*kubernetes.Service)}
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
@@ -161,7 +162,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: pods[0].Name}, true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
@@ -400,7 +401,7 @@ func TestExternalService(t *testing.T) {
 			ma.Logger.Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			wrong := matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ServiceName,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
 			}, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
