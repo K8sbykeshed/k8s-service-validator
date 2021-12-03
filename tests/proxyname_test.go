@@ -13,17 +13,12 @@ import (
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
+	"github.com/k8sbykeshed/k8s-service-lb-validator/tools"
 )
 
 func mustOrFatal(err error, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func mustNoWrong(wrongNum int, t *testing.T) {
-	if wrongNum > 0 {
-		t.Errorf("Wrong result number %d", wrongNum)
 	}
 }
 
@@ -85,24 +80,21 @@ func TestProxyNameLabel(t *testing.T) { // nolint
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			for _, service := range []kubernetes.ServiceBase{disabledService, toggledService} {
-				if err := service.Delete(); err != nil {
-					t.Fatal(err)
-				}
-			}
+			services := []*kubernetes.Service{disabledService.(*kubernetes.Service), toggledService.(*kubernetes.Service)}
+			tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
 		Assess("should implement service.kubernetes.io/service-proxy-name", func(_ context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			ma.Logger.Info("verify the toggledServices are up.")
 			toPod.SetClusterIP(toggledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
 			ma.Logger.Info("verify the disabledServices are not up.")
 			toPod.SetClusterIP(disabledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
@@ -112,7 +104,7 @@ func TestProxyNameLabel(t *testing.T) { // nolint
 
 			ma.Logger.Info("verify the toggledServices are not up.")
 			toPod.SetClusterIP(toggledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
@@ -121,14 +113,14 @@ func TestProxyNameLabel(t *testing.T) { // nolint
 			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
 
 			ma.Logger.Info("verify the toggledServices are up again.")
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
 			ma.Logger.Info("verify the disabledServices are still not up.")
 			toPod.SetClusterIP(disabledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)

@@ -89,6 +89,13 @@ func (m *Model) AllPods() []*entities.Pod {
 	return *m.pods
 }
 
+func (m *Model) ResetAllPods() {
+	pods := m.AllPods()
+	for _, p := range pods {
+		p.Reset()
+	}
+}
+
 // AllPortsProtocol returns a tuple of slices of all ports and protocols
 func (m *Model) AllPortsProtocol() ([]int32, []v1.Protocol) {
 	if m.ports == nil && m.protocols == nil {

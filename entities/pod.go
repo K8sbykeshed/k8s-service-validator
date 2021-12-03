@@ -201,3 +201,13 @@ func (pod PodString) PodName() string {
 	_, podName := pod.split()
 	return podName
 }
+
+// ResetService erases service related fields on pod, to clear taint from previous test for starting new journey
+func (p *Pod) Reset() {
+	p.ExternalIPs = nil
+	p.SkipProbe = false
+	p.serviceName = ""
+	p.clusterIP = ""
+	p.ToPort = 0
+	p.HostNetwork = false
+}
