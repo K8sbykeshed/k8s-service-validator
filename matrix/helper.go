@@ -46,7 +46,8 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLo
 
 	// 2nd try, in case first one failed
 	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback); wrong != 0 {
-		k8s.Logger.Warn("Retrying (== SECOND TRY ==) - failed first probe with wrong results ... ", zap.Int("wrong", wrong))
+		k8s.Logger.Warn("Retrying (== SECOND TRY ==) - failed first probe with wrong results ... ",
+								zap.Int("wrong", wrong))
 		ProbePodToPodConnectivity(k8s, model, testCase)
 	}
 

@@ -316,7 +316,6 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Assess("should be reachable via NodePortLocal k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating ExternalTrafficPolicy=locali with ports in TCP and UDP")
 			ma.Logger.Info("Testing NodePortLocal with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, false)
 			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
@@ -328,7 +327,7 @@ func TestExternalService(t *testing.T) {
 			reachabilityUDP := matrix.NewReachability(pods, false)
 			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
+				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
 			}, true), t)
 			return ctx
 		}).Feature()
