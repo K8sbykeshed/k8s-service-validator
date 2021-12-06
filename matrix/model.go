@@ -3,7 +3,7 @@ package matrix
 import (
 	"fmt"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -87,6 +87,13 @@ func (m *Model) AllPods() []*entities.Pod {
 		m.pods = &pods
 	}
 	return *m.pods
+}
+
+func (m *Model) ResetAllPods() {
+	pods := m.AllPods()
+	for _, p := range pods {
+		p.Reset()
+	}
 }
 
 // AllPortsProtocol returns a tuple of slices of all ports and protocols

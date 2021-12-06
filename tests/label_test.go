@@ -3,28 +3,24 @@ package tests
 import (
 	"context"
 	"errors"
-	"go.uber.org/zap"
 	"testing"
+
+	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities/kubernetes"
-	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/tools"
 )
 
 func mustOrFatal(err error, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-func mustNoWrong(wrongNum int, t *testing.T) {
-	if wrongNum > 0 {
-		t.Errorf("Wrong result number %d", wrongNum)
 	}
 }
 
@@ -41,15 +37,16 @@ func TestLabels(t *testing.T) { // nolint
 	var toggledClusterIP string
 
 	proxyNameLabelKey := "service.kubernetes.io/service-proxy-name"
-	headlessLabelKey := "service.kubernetes.io/headless"
+	proxyNameLabelValue := "foo-bar"
 
-	labelValue := "foo-bar"
+	headlessLabelKey := "service.kubernetes.io/headless"
+	headlessLabelValue := ""
 
 	upReachability := matrix.NewReachability(pods, true)
 	downReachability := matrix.NewReachability(pods, true)
 	downReachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: toPod.Name}, false)
 
-	getSetupFunc := func(labelKey string) features.Func {
+	getSetupFunc := func(labelKey, labelValue string) features.Func {
 		return func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
 			var err error
 
@@ -98,44 +95,44 @@ func TestLabels(t *testing.T) { // nolint
 		return ctx
 	}
 
-	getAssessFunc := func(labelKey string) features.Func {
+	getAssessFunc := func(labelKey, labelValue string) features.Func {
 		return func(_ context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("verify the toggledService is up without", zap.String("label", labelKey))
+			logger.Info("verify the toggledService is up without", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("verify the disabledService is not up with", zap.String("label", labelKey))
+			logger.Info("verify the disabledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("add label to the toggledService", zap.String("label", labelKey))
-			mustOrFatal(toggledService.SetLabel(proxyNameLabelKey, labelValue), t)
+			logger.Info("add label to the toggledService", zap.String("label", labelKey))
+			mustOrFatal(toggledService.SetLabel(labelKey, labelValue), t)
 
-			ma.Logger.Info("verify the toggledService is not up with", zap.String("label", labelKey))
+			logger.Info("verify the toggledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("remove label from the toggledService", zap.String("label", labelKey))
-			mustOrFatal(toggledService.RemoveLabel(proxyNameLabelKey), t)
+			logger.Info("remove label from the toggledService", zap.String("label", labelKey))
+			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
 
-			ma.Logger.Info("verify the toggledService is up again without", zap.String("label", labelKey))
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			logger.Info("verify the toggledService is up again without", zap.String("label", labelKey))
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("verify the disabledService is still not up with", zap.String("label", labelKey))
+			logger.Info("verify the disabledService is still not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
-			mustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
@@ -144,12 +141,14 @@ func TestLabels(t *testing.T) { // nolint
 	}
 
 	featureProxyNameLabel := features.New("ProxyNameLabel").WithLabel("type", "ProxyNameLabel").
-		Setup(getSetupFunc(proxyNameLabelKey)).Teardown(teardown).
-		Assess("should implement service.kubernetes.io/service-proxy-name", getAssessFunc(proxyNameLabelKey)).Feature()
+		Setup(getSetupFunc(proxyNameLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Assess("should implement service.kubernetes.io/service-proxy-name",
+			getAssessFunc(proxyNameLabelKey, proxyNameLabelValue)).Feature()
 
 	featureHeadlessLabel := features.New("HeadlessLabel").WithLabel("type", "HeadlessLabel").
-		Setup(getSetupFunc(headlessLabelKey)).Teardown(teardown).
-		Assess("should implement service.kubernetes.io/headless", getAssessFunc(headlessLabelKey)).Feature()
+		Setup(getSetupFunc(headlessLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Assess("should implement service.kubernetes.io/headless",
+			getAssessFunc(headlessLabelKey, headlessLabelValue)).Feature()
 
 	testenv.Test(t, featureProxyNameLabel, featureHeadlessLabel)
 }

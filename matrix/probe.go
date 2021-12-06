@@ -1,7 +1,7 @@
 package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-lb-validator/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
@@ -58,7 +58,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 			addrTo = job.PodTo.GetClusterIP()
 		case entities.NodePort:
 			addrTo = job.PodTo.GetHostIP()
-		case entities.ServiceName:
+		case entities.ExternalName:
 			addrTo = job.PodTo.GetServiceName()
 		case entities.LoadBalancer:
 			var externalIPs []entities.ExternalIP
@@ -68,7 +68,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 				externalIPs = job.PodTo.GetExternalIPsByProtocol(v1.ProtocolUDP)
 			}
 			// Temporary solution to unblock the tests, load balancer IPs take longer time than expected to get created.
-			// will solve in https://github.com/K8sbykeshed/k8s-service-lb-validator/issues/44
+			// will solve in https://github.com/K8sbykeshed/k8s-service-validator/issues/44
 			if len(externalIPs) > 0 {
 				addrTo = externalIPs[0].IP
 			}

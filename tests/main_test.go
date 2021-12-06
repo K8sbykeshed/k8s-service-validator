@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/k8sbykeshed/k8s-service-lb-validator/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
