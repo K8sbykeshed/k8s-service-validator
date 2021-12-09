@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"go.uber.org/zap"
+
 	v1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -22,7 +24,7 @@ func mustOrFatal(err error, t *testing.T) {
 	}
 }
 
-func TestProxyNameLabel(t *testing.T) { // nolint
+func TestLabels(t *testing.T) { // nolint
 	pods := model.AllPods()
 
 	// the pod where services under test is deployed
@@ -34,18 +36,21 @@ func TestProxyNameLabel(t *testing.T) { // nolint
 	var disabledClusterIP string
 	var toggledClusterIP string
 
-	labelKey := "service.kubernetes.io/service-proxy-name"
-	labelValue := "foo-bar"
+	proxyNameLabelKey := "service.kubernetes.io/service-proxy-name"
+	proxyNameLabelValue := "foo-bar"
+
+	headlessLabelKey := "service.kubernetes.io/headless"
+	headlessLabelValue := ""
 
 	upReachability := matrix.NewReachability(pods, true)
 	downReachability := matrix.NewReachability(pods, true)
 	downReachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: toPod.Name}, false)
 
-	featureProxyNameLabel := features.New("ProxyNameLabel").WithLabel("type", "ProxyNameLabel").
-		Setup(func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
+	getSetupFunc := func(labelKey, labelValue string) features.Func {
+		return func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
 			var err error
 
-			// create a disabled service labeled with service-proxy-name
+			// create a disabled service with the label
 			disabledService = kubernetes.NewService(cs, toPod.ClusterIPService())
 			if _, err := disabledService.Create(); err != nil {
 				t.Fatal()
@@ -78,55 +83,72 @@ func TestProxyNameLabel(t *testing.T) { // nolint
 			// label the disabled service
 			mustOrFatal(disabledService.SetLabel(labelKey, labelValue), t)
 			return ctx
-		}).
-		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			services := []*kubernetes.Service{disabledService.(*kubernetes.Service), toggledService.(*kubernetes.Service)}
-			tools.ResetTestBoard(t, services, model)
-			return ctx
-		}).
-		Assess("should implement service.kubernetes.io/service-proxy-name", func(_ context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("verify the toggledServices are up.")
+		}
+	}
+
+	teardown := func(context.Context, *testing.T, *envconf.Config) context.Context {
+		for _, service := range []kubernetes.ServiceBase{disabledService, toggledService} {
+			if err := service.Delete(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return ctx
+	}
+
+	getAssessFunc := func(labelKey, labelValue string) features.Func {
+		return func(_ context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			logger.Info("verify the toggledService is up without", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("verify the disabledServices are not up.")
+			logger.Info("verify the disabledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("add service-proxy-name label.")
+			logger.Info("add label to the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.SetLabel(labelKey, labelValue), t)
 
-			ma.Logger.Info("verify the toggledServices are not up.")
+			logger.Info("verify the toggledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("remove service-proxy-name label.")
+			logger.Info("remove label from the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
 
-			ma.Logger.Info("verify the toggledServices are up again.")
+			logger.Info("verify the toggledService is up again without", zap.String("label", labelKey))
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 
-			ma.Logger.Info("verify the disabledServices are still not up.")
+			logger.Info("verify the disabledService is still not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false), t)
 			return ctx
-		}).
-		Feature()
+		}
+	}
 
-	testenv.Test(t, featureProxyNameLabel)
+	featureProxyNameLabel := features.New("ProxyNameLabel").WithLabel("type", "ProxyNameLabel").
+		Setup(getSetupFunc(proxyNameLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Assess("should implement service.kubernetes.io/service-proxy-name",
+			getAssessFunc(proxyNameLabelKey, proxyNameLabelValue)).Feature()
+
+	featureHeadlessLabel := features.New("HeadlessLabel").WithLabel("type", "HeadlessLabel").
+		Setup(getSetupFunc(headlessLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Assess("should implement service.kubernetes.io/headless",
+			getAssessFunc(headlessLabelKey, headlessLabelValue)).Feature()
+
+	testenv.Test(t, featureProxyNameLabel, featureHeadlessLabel)
 }
