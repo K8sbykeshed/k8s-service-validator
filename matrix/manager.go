@@ -3,11 +3,12 @@ package matrix
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -102,7 +103,7 @@ func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 }
 
 // AddLabelToPod adds a label to a pod
-func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key string, value string)  error {
+func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key string, value string) error {
 	nsName := podSpec.Namespace
 
 	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
@@ -207,13 +208,11 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 
 // ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
 func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
-	var cmd []string
 	port := strconv.Itoa(toPort)
 
-	cmd = []string{"/usr/bin/curl", "-g", "-q", "-s", "telnet://"+net.JoinHostPort(addrTo, port)}
-
+	cmd := []string{"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s", "--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port)}
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
-	k.Logger.Debug("commandDebugString "+ commandDebugString)
+	k.Logger.Debug("commandDebugString " + commandDebugString)
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
 		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
