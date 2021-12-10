@@ -136,11 +136,11 @@ func IncreaseServiceID() {
 func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (string, kubernetes.ServiceBase, string, error) {
 	IncreaseServiceID()
 
-	var servicePorts []v1.ServicePort
+	servicePorts := make([]v1.ServicePort, len(t.ProtocolPorts))
 	for _, sp := range t.ProtocolPorts {
 		servicePorts = append(servicePorts, v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
-			Protocol: v1.Protocol(sp.Protocol),
+			Protocol: sp.Protocol,
 			Port:     sp.Port,
 		})
 	}
@@ -152,7 +152,7 @@ func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (
 		},
 		Spec: v1.ServiceSpec{
 			Selector: t.Selector,
-			Ports: servicePorts,
+			Ports:    servicePorts,
 		},
 	}
 	if t.SessionAffinity {

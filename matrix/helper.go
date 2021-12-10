@@ -37,7 +37,7 @@ func NewClientSet() (*kubernetes.Clientset, *rest.Config) {
 }
 
 // ValidateOrFail validates connectivity
-func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLoopback bool, reachTargetPod bool) int {
+func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLoopback, reachTargetPod bool) int {
 	var wrong int
 
 	// 1st try
