@@ -84,7 +84,8 @@ func TestBasicService(t *testing.T) { // nolint
 				Namespace:       namespace,
 				Selector:        map[string]string{labelKey: labelValue},
 				SessionAffinity: true,
-				ProtocolPort:    entities.ProtocolPortPair{string(pods[0].Containers[0].Protocol), 80},
+				ProtocolPorts:   []entities.ProtocolPortPair{{v1.ProtocolTCP, 80},
+															{v1.ProtocolTCP, 81}},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -99,14 +100,15 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			podsWithNewLabel := pods[3:]
+			// remove label for session affinity on pods
+			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
 				ma.RemoveLabelFromPod(pod, "app")
 			}
 			tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
-		Assess("should always reach to same pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		Assess("should always reach to same pod, even with via different protocol", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			ma.Logger.Info("Testing ClusterIP session affinity to one pod.")
 
 			clusterIPWithSessionAffinity := pods[3].GetClusterIP()
@@ -123,14 +125,24 @@ func TestBasicService(t *testing.T) { // nolint
 				fromToPeer[p.Name] = endpoint
 			}
 
-
-			ma.Logger.Info(fmt.Sprintf("Session affinity service, from/to peers: %v", fromToPeer))
-			reachability := matrix.NewReachability(pods, false)
+			// Same client reach with different port to the session affinity service, should have same destiniation pod,
+			ma.Logger.Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
+			ma.Logger.Info(fmt.Sprintf("Connection via port 80"))
+			reachabilityPort80 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
-				reachability.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+				reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
 			}
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
+			}, false, true), t)
+
+			ma.Logger.Info(fmt.Sprintf("Connection via port 81"))
+			reachabilityPort81 := matrix.NewReachability(pods, false)
+			for from, to := range fromToPeer {
+				reachabilityPort81.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+			}
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				ToPort: 81, Protocol: v1.ProtocolUDP, Reachability: reachabilityPort81, ServiceType: entities.ClusterIP,
 			}, false, true), t)
 
 			return ctx
@@ -145,7 +157,7 @@ func TestBasicService(t *testing.T) { // nolint
 			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
 				Name:         "endless",
 				Namespace:    namespace,
-				ProtocolPort: entities.ProtocolPortPair{string(v1.ProtocolTCP), endlessServicePort},
+				ProtocolPorts: []entities.ProtocolPortPair{{v1.ProtocolTCP, endlessServicePort}},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -181,7 +193,7 @@ func TestBasicService(t *testing.T) { // nolint
 			serviceName, service, _, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
 				Name:         "hairpin",
 				Namespace:    namespace,
-				ProtocolPort: entities.ProtocolPortPair{string(pods[0].Containers[0].Protocol), 80},
+				ProtocolPorts: []entities.ProtocolPortPair{{pods[0].Containers[0].Protocol, 80}},
 			})
 			if err != nil {
 				t.Fatal(err)

@@ -28,12 +28,12 @@ type ServiceTemplate struct {
 	Name            string
 	Namespace       string
 	Selector        map[string]string
-	ProtocolPort    ProtocolPortPair
+	ProtocolPorts   []ProtocolPortPair
 	SessionAffinity bool
 }
 
 type ProtocolPortPair struct {
-	Protocol string
+	Protocol v1.Protocol
 	Port     int32
 }
 
@@ -135,6 +135,16 @@ func IncreaseServiceID() {
 // CreateServiceFromTemplate creates k8s service based on template
 func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (string, kubernetes.ServiceBase, string, error) {
 	IncreaseServiceID()
+
+	var servicePorts []v1.ServicePort
+	for _, sp := range t.ProtocolPorts {
+		servicePorts = append(servicePorts, v1.ServicePort{
+			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
+			Protocol: v1.Protocol(sp.Protocol),
+			Port:     sp.Port,
+		})
+	}
+
 	s := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
@@ -142,11 +152,7 @@ func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (
 		},
 		Spec: v1.ServiceSpec{
 			Selector: t.Selector,
-			Ports: []v1.ServicePort{{
-				Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(t.ProtocolPort.Protocol), t.ProtocolPort.Port),
-				Protocol: v1.ProtocolTCP,
-				Port:     t.ProtocolPort.Port,
-			}},
+			Ports: servicePorts,
 		},
 	}
 	if t.SessionAffinity {
