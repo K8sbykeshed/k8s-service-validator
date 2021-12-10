@@ -200,7 +200,8 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:" +
+			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 		return false, commandDebugString, nil
 	}
 	return true, commandDebugString, nil
@@ -210,12 +211,15 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
 	port := strconv.Itoa(toPort)
 
-	cmd := []string{"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s", "--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port)}
+	cmd := []string{"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s",
+		"--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port)}
+
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	k.Logger.Debug("commandDebugString " + commandDebugString)
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:" +
+			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 		return false, "", commandDebugString, nil
 	}
 	ep := strings.TrimSpace(stdout)
