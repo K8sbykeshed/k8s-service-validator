@@ -57,13 +57,13 @@ func TestBasicService(t *testing.T) { // nolint
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 
 			ma.Logger.Info("Testing ClusterIP with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 
@@ -74,12 +74,12 @@ func TestBasicService(t *testing.T) { // nolint
 			// add new label to two pods, pod-3 and pod-4
 			labelKey := "app"
 			labelValue := "test-session-affinity"
-			podsWithNewLabel := pods[3:]
+			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
 				ma.AddLabelToPod(pod, labelKey, labelValue)
 			}
 			// create cluster IP service with the new label and session affinity: clientIP
-			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{Name: "hairpin",
+			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{Name: "service-session-affinity",
 																		Namespace: namespace,
 																		Selector: map[string]string{labelKey:labelValue},
 																		SessionAffinity: true,
@@ -99,11 +99,11 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			podsWithNewLabel := pods[3:]
-			for _, pod := range podsWithNewLabel {
-				ma.RemoveLabelFromPod(pod, "app")
-			}
-			tools.ResetTestBoard(t, services, model)
+			//podsWithNewLabel := pods[3:]
+			//for _, pod := range podsWithNewLabel {
+			//	ma.RemoveLabelFromPod(pod, "app")
+			//}
+			//tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
 		Assess("should always reach to same pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -111,7 +111,7 @@ func TestBasicService(t *testing.T) { // nolint
 			targetPod := pods[3]
 
 			// setup affinity
-			connected, endpoint, connectCmd, err :=ma.ProbeConnectivityWithCurl(namespace, pods[0].Name, pods[0].Containers[0].Name, targetPod.Name, 80)
+			connected, endpoint, connectCmd, err :=ma.ProbeConnectivityWithCurl(namespace, pods[0].Name, pods[0].Containers[0].Name, targetPod.GetClusterIP(), v1.ProtocolTCP, 80)
 			if err != nil {
 				t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
 			}
@@ -123,7 +123,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: endpoint}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, true), t)
 
 			return ctx
 		}).Feature()
@@ -159,7 +159,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace}, false)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 
@@ -190,7 +190,7 @@ func TestBasicService(t *testing.T) { // nolint
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: pods[0].Name}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 
@@ -231,13 +231,13 @@ func TestBasicService(t *testing.T) { // nolint
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
-			}, false), t)
+			}, false, false), t)
 
 			ma.Logger.Info("Testing NodePort with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 
@@ -303,13 +303,13 @@ func TestBasicService(t *testing.T) { // nolint
 			reachabilityTCP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.LoadBalancer,
-			}, false), t)
+			}, false, false), t)
 
 			ma.Logger.Info("Creating Loadbalancer with UDP protocol")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.LoadBalancer,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 
@@ -365,14 +365,14 @@ func TestExternalService(t *testing.T) {
 			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
-			}, true), t)
+			}, true, false), t)
 
 			ma.Logger.Info("Testing NodePortLocal with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, false)
 			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
-			}, true), t)
+			}, true, false), t)
 			return ctx
 		}).Feature()
 
@@ -401,7 +401,7 @@ func TestExternalService(t *testing.T) {
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}).Feature()
 

@@ -152,7 +152,7 @@ func TestUDPInitContainer(t *testing.T) {
 			// Based on the above check if the pod receives the traffic.
 
 			testCase := matrix.TestCase{ToPort: 80, Protocol: v1.ProtocolUDP, Reachability: reachability, ServiceType: entities.ClusterIP}
-			wrong := matrix.ValidateOrFail(ma, &udpModel, &testCase, false)
+			wrong := matrix.ValidateOrFail(ma, &udpModel, &testCase, false, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}
