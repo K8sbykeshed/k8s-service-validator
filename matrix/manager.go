@@ -103,7 +103,7 @@ func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 }
 
 // AddLabelToPod adds a label to a pod
-func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key string, value string) error {
+func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key, value string) error {
 	nsName := podSpec.Namespace
 
 	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
@@ -121,7 +121,7 @@ func (k *KubeManager) RemoveLabelFromPod(podSpec *entities.Pod, key string) erro
 	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
 		[]byte(`[{"op": "remove", "path": "/metadata/labels/`+key+`"}]`), metav1.PatchOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "unable to remove label from pod %s/%s label: %s:%s", nsName, podSpec.Name, key)
+		return errors.Wrapf(err, "unable to remove label from pod %s/%s label key: %s", nsName, podSpec.Name, key)
 	}
 	return nil
 }
@@ -200,7 +200,7 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:" +
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:"+
 			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 		return false, commandDebugString, nil
 	}
@@ -211,14 +211,16 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
 	port := strconv.Itoa(toPort)
 
-	cmd := []string{"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s",
-		"--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port)}
+	cmd := []string{
+		"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s",
+		"--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port),
+	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	k.Logger.Debug("commandDebugString " + commandDebugString)
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:" +
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:"+
 			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 		return false, "", commandDebugString, nil
 	}

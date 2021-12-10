@@ -76,7 +76,9 @@ func TestBasicService(t *testing.T) { // nolint
 			labelValue := "test-session-affinity"
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
-				ma.AddLabelToPod(pod, labelKey, labelValue)
+				if err := ma.AddLabelToPod(pod, labelKey, labelValue); err != nil {
+					t.Fatal(err)
+				}
 			}
 			// create cluster IP service with the new label and session affinity: clientIP
 			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
@@ -84,8 +86,10 @@ func TestBasicService(t *testing.T) { // nolint
 				Namespace:       namespace,
 				Selector:        map[string]string{labelKey: labelValue},
 				SessionAffinity: true,
-				ProtocolPorts:   []entities.ProtocolPortPair{{v1.ProtocolTCP, 80},
-															{v1.ProtocolTCP, 81}},
+				ProtocolPorts: []entities.ProtocolPortPair{
+					{Protocol: v1.ProtocolTCP, Port: 80},
+					{Protocol: v1.ProtocolTCP, Port: 81},
+				},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -103,7 +107,9 @@ func TestBasicService(t *testing.T) { // nolint
 			// remove label for session affinity on pods
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
-				ma.RemoveLabelFromPod(pod, "app")
+				if err := ma.RemoveLabelFromPod(pod, "app"); err != nil {
+					t.Fatal(err)
+				}
 			}
 			tools.ResetTestBoard(t, services, model)
 			return ctx
@@ -120,14 +126,14 @@ func TestBasicService(t *testing.T) { // nolint
 					t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
 				}
 				if !connected {
-					t.Fatal(errors.New("failed to connect the ClusterIP service with sessionAffinity."))
+					t.Fatal(errors.New("failed to connect the ClusterIP service with sessionAffinity"))
 				}
 				fromToPeer[p.Name] = endpoint
 			}
 
 			// Same client reach with different port to the session affinity service, should have same destiniation pod,
 			ma.Logger.Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
-			ma.Logger.Info(fmt.Sprintf("Connection via port 80"))
+			ma.Logger.Info("Connection via port 80")
 			reachabilityPort80 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
 				reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
@@ -136,7 +142,7 @@ func TestBasicService(t *testing.T) { // nolint
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
 			}, false, true), t)
 
-			ma.Logger.Info(fmt.Sprintf("Connection via port 81"))
+			ma.Logger.Info("Connection via port 81")
 			reachabilityPort81 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
 				reachabilityPort81.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
@@ -155,9 +161,9 @@ func TestBasicService(t *testing.T) { // nolint
 			var endlessServicePort int32 = 80
 			// Create a service with no endpoints
 			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
-				Name:         "endless",
-				Namespace:    namespace,
-				ProtocolPorts: []entities.ProtocolPortPair{{v1.ProtocolTCP, endlessServicePort}},
+				Name:          "endless",
+				Namespace:     namespace,
+				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: v1.ProtocolTCP, Port: endlessServicePort}},
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -191,9 +197,9 @@ func TestBasicService(t *testing.T) { // nolint
 			services = make(kubernetes.Services, len(pods))
 			// Create a clusterIP service
 			serviceName, service, _, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
-				Name:         "hairpin",
-				Namespace:    namespace,
-				ProtocolPorts: []entities.ProtocolPortPair{{pods[0].Containers[0].Protocol, 80}},
+				Name:          "hairpin",
+				Namespace:     namespace,
+				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: pods[0].Containers[0].Protocol, Port: 80}},
 			})
 			if err != nil {
 				t.Fatal(err)
