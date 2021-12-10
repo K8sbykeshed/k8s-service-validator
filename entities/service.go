@@ -2,10 +2,11 @@ package entities
 
 import (
 	"fmt"
-	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
-	"github.com/pkg/errors"
 	"strings"
 	"sync"
+
+	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	"github.com/pkg/errors"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,16 +25,16 @@ const (
 )
 
 type ServiceTemplate struct {
-	Name      string
-	Namespace string
-	Selector  map[string]string
-	ProtocolPort ProtocolPortPair
+	Name            string
+	Namespace       string
+	Selector        map[string]string
+	ProtocolPort    ProtocolPortPair
 	SessionAffinity bool
 }
 
 type ProtocolPortPair struct {
 	Protocol string
-	Port int32
+	Port     int32
 }
 
 // svcID prevent conflicts when creating multiple services for same pod
