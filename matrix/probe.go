@@ -168,7 +168,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {
-			k8s.Logger.Error("Validation FAILED!",
+			k8s.Logger.Error("Connection blocked!",
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
 			)
