@@ -47,7 +47,7 @@ func TestHostNetwork(t *testing.T) {
 			reachability := matrix.NewReachability(model.AllPods(), true)
 
 			testCase := matrix.TestCase{ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.PodIP}
-			wrong := matrix.ValidateOrFail(ma, model, &testCase, false)
+			wrong := matrix.ValidateOrFail(ma, model, &testCase, false, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}

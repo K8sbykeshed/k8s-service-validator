@@ -102,14 +102,14 @@ func TestLabels(t *testing.T) { // nolint
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 
 			logger.Info("verify the disabledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 
 			logger.Info("add label to the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.SetLabel(labelKey, labelValue), t)
@@ -119,7 +119,7 @@ func TestLabels(t *testing.T) { // nolint
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 
 			logger.Info("remove label from the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
@@ -128,14 +128,14 @@ func TestLabels(t *testing.T) { // nolint
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 
 			logger.Info("verify the disabledService is still not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
-			}, false), t)
+			}, false, false), t)
 			return ctx
 		}
 	}

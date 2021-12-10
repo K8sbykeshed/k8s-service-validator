@@ -96,13 +96,13 @@ func TestMain(m *testing.M) {
 		},
 	).Finish(
 		// Finished cleans up the namespace in the end of the suite.
-		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
-			if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
-				log.Fatal(err)
-			}
-			return ctx, nil
-		},
+		//func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
+		//	logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
+		//	if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
+		//		log.Fatal(err)
+		//	}
+		//	return ctx, nil
+		//},
 	)
 
 	os.Exit(testenv.Run(m))

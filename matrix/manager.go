@@ -206,13 +206,14 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 }
 
 // ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
-func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, toPort int) (bool, string, string, error) { // nolint
+func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
 	var cmd []string
 	port := strconv.Itoa(toPort)
 
-	cmd = []string{"/usr/bin/curl", "-g -q -s ", "telnet://"+net.JoinHostPort(addrTo, port)}
+	cmd = []string{"/usr/bin/curl", "-g", "-q", "-s", "telnet://"+net.JoinHostPort(addrTo, port)}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
+	k.Logger.Debug("commandDebugString "+ commandDebugString)
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
 		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
@@ -264,7 +265,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			}
 			reachability := NewReachability(model.AllPods(), true)
 			testCase.Reachability = reachability
-			ProbePodToPodConnectivity(k, model, testCase)
+			ProbePodToPodConnectivity(k, model, testCase, false)
 			_, wrong, _, _ := reachability.Summary(false)
 			if wrong == 0 {
 				k.Logger.Info("Server is ready", zap.String("case", caseName))
