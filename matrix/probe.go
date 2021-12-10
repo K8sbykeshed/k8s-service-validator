@@ -78,7 +78,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		}
 
 		podFrom := job.PodFrom
-		connected, command, err := manager.probeConnectivity(
+		connected, command, err := manager.ProbeConnectivity(
 			podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
 		)
 
@@ -94,12 +94,12 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
 func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase) {
-	numberOfWorkers := 3 // See https://github.com/kubernetes/kubernetes/pull/97690
+	numberOfWorkers := 4 // See https://github.com/kubernetes/kubernetes/pull/97690
 	allPods := model.AllPods()
 	size := len(allPods) * len(allPods)
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
-	for i := 0; i < numberOfWorkers; i++ {
+	for i := 1; i < numberOfWorkers; i++ {
 		go probeWorker(k8s, jobs, results)
 	}
 

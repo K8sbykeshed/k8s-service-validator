@@ -2,11 +2,14 @@ package entities
 
 import (
 	"fmt"
+	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	"github.com/pkg/errors"
 	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sKubernetes "k8s.io/client-go/kubernetes"
 )
 
 // Constants for services
@@ -20,13 +23,20 @@ const (
 	Allprotocols = "allprotocols"
 )
 
-type Service struct {
+type ServiceTemplate struct {
 	Name      string
 	Namespace string
 	Selector  map[string]string
+	ProtocolPort ProtocolPortPair
+	SessionAffinity bool
 }
 
-// serviceID prevent conflicts when creating multiple services for same pod
+type ProtocolPortPair struct {
+	Protocol string
+	Port int32
+}
+
+// svcID prevent conflicts when creating multiple services for same pod
 var svcID *ServiceID
 
 type ServiceID struct {
@@ -44,20 +54,6 @@ func NewService(p *Pod) *v1.Service {
 		},
 		Spec: v1.ServiceSpec{
 			Selector: p.LabelSelector(),
-		},
-	}
-}
-
-// NewService returns the service boilerplate based on service template
-func NewServiceFromTemplate(t Service) *v1.Service {
-	IncreaseServiceID()
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
-			Namespace: t.Namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Selector: t.Selector,
 		},
 	}
 }
@@ -133,4 +129,38 @@ func IncreaseServiceID() {
 	svcID.mu.Lock()
 	defer svcID.mu.Unlock()
 	svcID.ID++
+}
+
+// CreateServiceFromTemplate creates k8s service based on template
+func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (string, kubernetes.ServiceBase, string, error) {
+	IncreaseServiceID()
+	s := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
+			Namespace: t.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Selector: t.Selector,
+			Ports: []v1.ServicePort{{
+				Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(t.ProtocolPort.Protocol), t.ProtocolPort.Port),
+				Protocol: v1.ProtocolTCP,
+				Port:     t.ProtocolPort.Port,
+			}},
+		},
+	}
+	if t.SessionAffinity {
+		s.Spec.SessionAffinity = "ClientIP"
+	}
+
+	var service kubernetes.ServiceBase = kubernetes.NewService(cs, s)
+	if _, err := service.Create(); err != nil {
+		return "", nil, "", errors.Wrapf(err, "failed to create service")
+	}
+
+	// wait for final status
+	clusterIP, err := service.WaitForClusterIP()
+	if err != nil || clusterIP == "" {
+		return "", nil, "", errors.Wrapf(err, "no cluster IP available")
+	}
+	return s.Name, service, clusterIP, nil
 }

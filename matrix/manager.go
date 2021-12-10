@@ -3,6 +3,7 @@ package matrix
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"net"
 	"strconv"
 	"strings"
@@ -90,7 +91,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	return nil
 }
 
-// CreatePod is a convenience function for pod setup.
+// CreatePod is a convenience function for pod setup
 func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 	nsName := podSpec.Namespace
 	pod, err := k.clientSet.CoreV1().Pods(nsName).Create(context.TODO(), podSpec, metav1.CreateOptions{})
@@ -98,6 +99,30 @@ func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 		return nil, errors.Wrapf(err, "unable to create pod %s/%s", nsName, podSpec.Name)
 	}
 	return pod, nil
+}
+
+// AddLabelToPod adds a label to a pod
+func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key string, value string)  error {
+	nsName := podSpec.Namespace
+
+	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
+		[]byte(`[{"op": "add", "path": "/metadata/labels/`+key+`", "value": "`+value+`"}]`), metav1.PatchOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "unable to add label to pod %s/%s label: %s:%s", nsName, podSpec.Name, key, value)
+	}
+	return nil
+}
+
+// RemoveLabelFromPod removes a label frm a pod
+func (k *KubeManager) RemoveLabelFromPod(podSpec *entities.Pod, key string) error {
+	nsName := podSpec.Namespace
+
+	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
+		[]byte(`[{"op": "remove", "path": "/metadata/labels/`+key+`"}]`), metav1.PatchOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "unable to remove label from pod %s/%s label: %s:%s", nsName, podSpec.Name, key)
+	}
+	return nil
 }
 
 // DeletePod deletes pod from a namespace
@@ -158,7 +183,7 @@ func (k *KubeManager) GetPod(ns, name string) (*v1.Pod, error) {
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
+func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
 	var cmd []string
 	port := strconv.Itoa(toPort)
 
@@ -178,6 +203,23 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 		return false, commandDebugString, nil
 	}
 	return true, commandDebugString, nil
+}
+
+// ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
+func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, toPort int) (bool, string, string, error) { // nolint
+	var cmd []string
+	port := strconv.Itoa(toPort)
+
+	cmd = []string{"/usr/bin/curl", "-g -q -s ", "telnet://"+net.JoinHostPort(addrTo, port)}
+
+	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
+	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+	if err != nil {
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		return false, "", commandDebugString, nil
+	}
+	ep := strings.TrimSpace(stdout)
+	return true, ep, commandDebugString, nil
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
