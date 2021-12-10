@@ -23,6 +23,7 @@ type Pod struct { // nolint
 	HostIP         string
 	ToPort         int32
 	HostNetwork    bool
+	Labels         map[string]string
 }
 
 // ExternalIP defines the struct of pod's external IP, which can be used to access from outside of node
@@ -143,7 +144,12 @@ func ContainersToK8SSpec(cntrs []*Container) []v1.Container {
 // LabelSelector returns the default labels that should be placed on a pod/deployment
 // in order for it to be uniquely selectable by label selectors
 func (p *Pod) LabelSelector() map[string]string {
-	return map[string]string{"pod": p.Name}
+	if p.Labels == nil {
+		p.Labels = make(map[string]string)
+	}
+
+	p.Labels["pod"] = p.Name
+	return p.Labels
 }
 
 // ToK8SSpec returns the Kubernetes pod specification

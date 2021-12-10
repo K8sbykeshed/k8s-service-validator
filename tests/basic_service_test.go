@@ -2,11 +2,10 @@ package tests
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
@@ -63,31 +62,83 @@ func TestBasicService(t *testing.T) { // nolint
 			ma.Logger.Info("Testing ClusterIP with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
+				ToPort: 80, Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
 			}, false), t)
+			return ctx
+		}).Feature()
+
+	// Test session affinity clientIP
+	featureSessionAffinity := features.New("SessionAffinity").WithLabel("type", "cluster_ip_sessionAffinity").
+		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
+			// add new label to two pods, pod-3 and pod-4
+			labelKey := "app"
+			labelValue := "test-session-affinity"
+			podsWithNewLabel := pods[3:]
+			for _, pod := range podsWithNewLabel {
+				ma.AddLabelToPod(pod, labelKey, labelValue)
+			}
+			// create cluster IP service with the new label and session affinity: clientIP
+			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{Name: "hairpin",
+																		Namespace: namespace,
+																		Selector: map[string]string{labelKey:labelValue},
+																		SessionAffinity: true,
+																		ProtocolPort: entities.ProtocolPortPair{string(pods[0].Containers[0].Protocol), 80}})
+
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, p := range pods {
+				p.SetClusterIP(clusterIP)
+				p.SetToPort(80)
+			}
+
+			services = []*kubernetes.Service{service.(*kubernetes.Service)}
+			return ctx
+		}).
+		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			podsWithNewLabel := pods[3:]
+			for _, pod := range podsWithNewLabel {
+				ma.RemoveLabelFromPod(pod, "app")
+			}
+			tools.ResetTestBoard(t, services, model)
+			return ctx
+		}).
+		Assess("should always reach to same pod", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			ma.Logger.Info("Testing ClusterIP session affinity to one pod.")
+			targetPod := pods[3]
+
+			// setup affinity
+			connected, endpoint, connectCmd, err :=ma.ProbeConnectivityWithCurl(namespace, pods[0].Name, pods[0].Containers[0].Name, targetPod.Name, 80)
+			if err != nil {
+				t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
+			}
+			if !connected {
+				t.Fatal(errors.New("failed to connect the ClusterIP service with sessionAffinity."))
+			}
+			ma.Logger.Info(fmt.Sprintf("Session affinity service, pod endpoint: %v", endpoint))
+			reachability := matrix.NewReachability(pods, false)
+			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: endpoint}, true)
+			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
+			}, false), t)
+
 			return ctx
 		}).Feature()
 
 	// Test endless service
 	featureEndlessService := features.New("EndlessService").WithLabel("type", "cluster_ip_endless").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			services = make(kubernetes.Services, len(pods))
 			var endlessServicePort int32 = 80
 			// Create a service with no endpoints
-			clusterSvc := entities.NewServiceFromTemplate(entities.Service{Name: "endless", Namespace: namespace})
-			clusterSvc.Spec.Ports = []v1.ServicePort{{
-				Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(v1.ProtocolTCP)), endlessServicePort),
-				Protocol: v1.ProtocolTCP,
-				Port:     endlessServicePort,
-			}}
-			var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
-			if _, err := service.Create(); err != nil {
+			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{Name: "endless",
+																		Namespace: namespace,
+																		ProtocolPort: entities.ProtocolPortPair{string(v1.ProtocolTCP), endlessServicePort}})
+			if err != nil {
 				t.Fatal(err)
-			}
-
-			// wait for final status
-			clusterIP, err := service.WaitForClusterIP()
-			if err != nil || clusterIP == "" {
-				t.Fatal(errors.New("no cluster IP available"))
 			}
 
 			for _, pod := range pods {
@@ -115,25 +166,16 @@ func TestBasicService(t *testing.T) { // nolint
 	// Test hairpin
 	featureHairpin := features.New("Hairpin").WithLabel("type", "cluster_ip_hairpin").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			// Create a service with no endpoints
-			clusterSvc := entities.NewServiceFromTemplate(entities.Service{Name: "hairpin", Namespace: namespace})
-			clusterSvc.Spec.Ports = []v1.ServicePort{{
-				Name:     fmt.Sprintf("service-port-%s-%d", strings.ToLower(string(pods[0].Containers[0].Protocol)), pods[0].Containers[0].Port),
-				Protocol: pods[0].Containers[0].Protocol,
-				Port:     80,
-			}}
-			clusterSvc.Spec.Selector = pods[0].LabelSelector()
-			var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
-			if _, err := service.Create(); err != nil {
+			services = make(kubernetes.Services, len(pods))
+			// Create a clusterIP service
+			serviceName, service,_, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{Name: "hairpin",
+																		Namespace: namespace,
+																		ProtocolPort: entities.ProtocolPortPair{string(pods[0].Containers[0].Protocol), 80}})
+			if err != nil {
 				t.Fatal(err)
 			}
 
-			// wait for final status
-			if _, err := service.WaitForEndpoint(); err != nil {
-				t.Fatal(err)
-			}
-
-			pods[0].SetServiceName(clusterSvc.Name)
+			pods[0].SetServiceName(serviceName)
 
 			services = []*kubernetes.Service{service.(*kubernetes.Service)}
 			return ctx
@@ -271,7 +313,8 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer, featureEndlessService, featureHairpin)
+	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer, featureEndlessService, featureHairpin,
+				featureSessionAffinity)
 }
 
 func TestExternalService(t *testing.T) {
