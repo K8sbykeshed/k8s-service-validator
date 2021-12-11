@@ -81,7 +81,7 @@ func TestBasicService(t *testing.T) { // nolint
 				}
 			}
 			// create cluster IP service with the new label and session affinity: clientIP
-			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
 				Name:            "service-session-affinity",
 				Namespace:       namespace,
 				Selector:        map[string]string{labelKey: labelValue},
@@ -160,7 +160,7 @@ func TestBasicService(t *testing.T) { // nolint
 			services = make(kubernetes.Services, len(pods))
 			var endlessServicePort int32 = 80
 			// Create a service with no endpoints
-			_, service, clusterIP, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
 				Name:          "endless",
 				Namespace:     namespace,
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: v1.ProtocolTCP, Port: endlessServicePort}},
@@ -196,7 +196,7 @@ func TestBasicService(t *testing.T) { // nolint
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// Create a clusterIP service
-			serviceName, service, _, err := entities.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			serviceName, service, _, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
 				Name:          "hairpin",
 				Namespace:     namespace,
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: pods[0].Containers[0].Protocol, Port: 80}},
