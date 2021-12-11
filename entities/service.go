@@ -5,12 +5,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
-	"github.com/pkg/errors"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sKubernetes "k8s.io/client-go/kubernetes"
 )
 
 // Constants for services
@@ -38,7 +34,7 @@ type ProtocolPortPair struct {
 }
 
 // svcID prevent conflicts when creating multiple services for same pod
-var svcID *ServiceID
+var SvcID *ServiceID
 
 type ServiceID struct {
 	mu sync.Mutex
@@ -50,7 +46,7 @@ func NewService(p *Pod) *v1.Service {
 	IncreaseServiceID()
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), svcID.ID),
+			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), SvcID.ID),
 			Namespace: p.Namespace,
 		},
 		Spec: v1.ServiceSpec{
@@ -124,50 +120,10 @@ func (p *Pod) NodePortLocalService() *v1.Service {
 }
 
 func IncreaseServiceID() {
-	if svcID == nil {
-		svcID = &ServiceID{}
+	if SvcID == nil {
+		SvcID = &ServiceID{}
 	}
-	svcID.mu.Lock()
-	defer svcID.mu.Unlock()
-	svcID.ID++
-}
-
-// CreateServiceFromTemplate creates k8s service based on template
-func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t ServiceTemplate) (string, kubernetes.ServiceBase, string, error) {
-	IncreaseServiceID()
-
-	servicePorts := make([]v1.ServicePort, len(t.ProtocolPorts))
-	for _, sp := range t.ProtocolPorts {
-		servicePorts = append(servicePorts, v1.ServicePort{
-			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
-			Protocol: sp.Protocol,
-			Port:     sp.Port,
-		})
-	}
-
-	s := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
-			Namespace: t.Namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Selector: t.Selector,
-			Ports:    servicePorts,
-		},
-	}
-	if t.SessionAffinity {
-		s.Spec.SessionAffinity = "ClientIP"
-	}
-
-	var service kubernetes.ServiceBase = kubernetes.NewService(cs, s)
-	if _, err := service.Create(); err != nil {
-		return "", nil, "", errors.Wrapf(err, "failed to create service")
-	}
-
-	// wait for final status
-	clusterIP, err := service.WaitForClusterIP()
-	if err != nil || clusterIP == "" {
-		return "", nil, "", errors.Wrapf(err, "no cluster IP available")
-	}
-	return s.Name, service, clusterIP, nil
+	SvcID.mu.Lock()
+	defer SvcID.mu.Unlock()
+	SvcID.ID++
 }

@@ -18,7 +18,9 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
+	ek"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 	k8s "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	k8sKubernetes "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -286,3 +288,45 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 	}
 	return errors.Errorf("after %d tries, %d HTTP servers are not ready", maxTries, len(notReady))
 }
+
+
+// CreateServiceFromTemplate creates k8s service based on template
+func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t entities.ServiceTemplate) (string, ek.ServiceBase, string, error) {
+	entities.IncreaseServiceID()
+
+	servicePorts := make([]v1.ServicePort, len(t.ProtocolPorts))
+	for _, sp := range t.ProtocolPorts {
+		servicePorts = append(servicePorts, v1.ServicePort{
+			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
+			Protocol: sp.Protocol,
+			Port:     sp.Port,
+		})
+	}
+
+	s := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%d", t.Name, entities.SvcID.ID),
+			Namespace: t.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Selector: t.Selector,
+			Ports:    servicePorts,
+		},
+	}
+	if t.SessionAffinity {
+		s.Spec.SessionAffinity = "ClientIP"
+	}
+
+	var service ek.ServiceBase = ek.NewService(cs, s)
+	if _, err := service.Create(); err != nil {
+		return "", nil, "", errors.Wrapf(err, "failed to create service")
+	}
+
+	// wait for final status
+	clusterIP, err := service.WaitForClusterIP()
+	if err != nil || clusterIP == "" {
+		return "", nil, "", errors.Wrapf(err, "no cluster IP available")
+	}
+	return s.Name, service, clusterIP, nil
+}
+
