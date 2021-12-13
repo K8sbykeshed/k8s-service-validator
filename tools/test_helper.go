@@ -16,6 +16,6 @@ func ResetTestBoard(t *testing.T, s kubernetes.Services, m *matrix.Model) {
 
 func MustNoWrong(wrongNum int, t *testing.T) {
 	if wrongNum > 0 {
-		t.Errorf("Wrong result number %d", wrongNum)
+		t.Errorf("Wrong results number %d", wrongNum)
 	}
 }
