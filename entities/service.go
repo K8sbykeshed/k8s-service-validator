@@ -33,7 +33,7 @@ type ProtocolPortPair struct {
 	Port     int32
 }
 
-// svcID prevent conflicts when creating multiple services for same pod
+// SvcID prevent conflicts when creating multiple services for same pod
 var SvcID *ServiceID
 
 type ServiceID struct {
