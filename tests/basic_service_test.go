@@ -121,7 +121,7 @@ func TestBasicService(t *testing.T) { // nolint
 			// setup affinity
 			fromToPeer := map[string]string{}
 			for _, p := range pods {
-				connected, endpoint, connectCmd, err := ma.ProbeConnectivityWithCurl(namespace, p.Name, p.Containers[0].Name, clusterIPWithSessionAffinity, v1.ProtocolTCP, 80)
+				connected, endpoint, connectCmd, err := ma.ProbeConnectivityWithNc(namespace, p.Name, p.Containers[0].Name, clusterIPWithSessionAffinity, v1.ProtocolTCP, 80)
 				if err != nil {
 					t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
 				}
@@ -131,7 +131,7 @@ func TestBasicService(t *testing.T) { // nolint
 				fromToPeer[p.Name] = endpoint
 			}
 
-			// Same client reach with different port to the session affinity service, should have same destiniation pod,
+			// Same client reach with different port to the session affinity service, should have same destination pod,
 			ma.Logger.Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
 			ma.Logger.Info("Connection via port 80")
 			reachabilityPort80 := matrix.NewReachability(pods, false)

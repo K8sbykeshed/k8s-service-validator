@@ -18,9 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	ek"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
-	k8s "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
-	k8sKubernetes "k8s.io/client-go/kubernetes"
+	ek "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 )
 
 const (
@@ -81,7 +79,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	kubePod := modelPod.ToK8SSpec()
 	k.Logger.Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
 
-	if err := k8s.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
+	if err := ek.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
 		return errors.Wrapf(err, "unable to wait for pod %s/%s", modelPod.Namespace, modelPod.Name)
 	}
 	if kubePod, err = k.GetPod(modelPod.Namespace, modelPod.Name); err != nil {
@@ -210,21 +208,25 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 }
 
 // ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
-func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
+func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
+	var cmd []string
 	port := strconv.Itoa(toPort)
 
-	cmd := []string{
-		"/usr/bin/curl", "--connect-timeout", "5", "-g", "-q", "-s",
-		"--max-time", "10", "--retry", "5", "--retry-delay", "0", "--retry-max-time", "20", "telnet://" + net.JoinHostPort(addrTo, port),
+	switch protocol {
+	case v1.ProtocolTCP:
+		cmd = []string{"nc", "-w5", addrTo, port}
+	case v1.ProtocolUDP:
+		cmd = []string{"nc", "-u", "-w5", addrTo, port}
+	default:
+		fmt.Println(fmt.Printf("protocol %s not supported", protocol))
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	k.Logger.Debug("commandDebugString " + commandDebugString)
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:"+
+		return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
 			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
-		return false, "", commandDebugString, nil
 	}
 	ep := strings.TrimSpace(stdout)
 	return true, ep, commandDebugString, nil
@@ -232,7 +234,7 @@ func (k *KubeManager) ProbeConnectivityWithCurl(nsFrom, podFrom, containerFrom, 
 
 // executeRemoteCommand executes a remote shell command on the given pod.
 func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) { // nolint
-	return k8s.ExecWithOptions(k.config, k.clientSet, &k8s.ExecOptions{
+	return ek.ExecWithOptions(k.config, k.clientSet, &ek.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
 		PodName:            pod,
@@ -289,18 +291,17 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 	return errors.Errorf("after %d tries, %d HTTP servers are not ready", maxTries, len(notReady))
 }
 
-
 // CreateServiceFromTemplate creates k8s service based on template
-func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t entities.ServiceTemplate) (string, ek.ServiceBase, string, error) {
+func CreateServiceFromTemplate(cs *kubernetes.Clientset, t entities.ServiceTemplate) (string, ek.ServiceBase, string, error) { //nolint
 	entities.IncreaseServiceID()
 
 	servicePorts := make([]v1.ServicePort, len(t.ProtocolPorts))
-	for _, sp := range t.ProtocolPorts {
-		servicePorts = append(servicePorts, v1.ServicePort{
+	for i, sp := range t.ProtocolPorts {
+		servicePorts[i] = v1.ServicePort{
 			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
 			Protocol: sp.Protocol,
 			Port:     sp.Port,
-		})
+		}
 	}
 
 	s := &v1.Service{
@@ -329,4 +330,3 @@ func CreateServiceFromTemplate(cs *k8sKubernetes.Clientset, t entities.ServiceTe
 	}
 	return s.Name, service, clusterIP, nil
 }
-

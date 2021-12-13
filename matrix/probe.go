@@ -86,7 +86,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		var err error
 		var ep string
 		if job.ReachTargetPod {
-			connected, ep, command, err = manager.ProbeConnectivityWithCurl(
+			connected, ep, command, err = manager.ProbeConnectivityWithNc(
 				podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
 			)
 		} else {
