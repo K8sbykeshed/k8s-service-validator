@@ -19,3 +19,5 @@ jobs:
         with:
           version: latest
           working-directory: .
+          skip-build-cache: true
+          exclude-use-default: false
