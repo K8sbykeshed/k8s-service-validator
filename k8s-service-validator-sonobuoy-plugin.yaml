@@ -1,14 +1,28 @@
+podSpec:
+  containers: []
+  volumes:
+    - name: socket-volume
+      hostPath:
+        path: "/var/run/docker.sock"
+#metadata:
+#  annotations:
+#    io.kubernetes.cri-o.userns-mode: "auto:size=65536"
 sonobuoy-config:
   driver: Job
   plugin-name: k8s-service-validator-sonobuoy-plugin
   result-format: raw
 spec:
-  command:
-  - ./run.sh
-  image: k8s-service-validator:v0.0.1
+  runtimeClassName: sysbox-runc
+#  securityContext:
+#    privileged: true
+  args:
+  - ""
+  image: projects-stg.registry.vmware.com/tkgdev/yzac/k8s-svc-validator:latest
   name: plugin
   resources: {}
   volumeMounts:
-  - mountPath: /tmp/sonobuoy/results
+  - mountPath: /tmp/results
     name: results
+  - mountPath: /var/run/docker.sock
+    name: socket-volume
 
