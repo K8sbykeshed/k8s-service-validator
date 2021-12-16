@@ -1,3 +1,8 @@
+# Demos
+
+- Initial sig-network demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8
+
+
 # K8S Service-API Table Tests
 
 [![GH Kube-Proxy - iptables - 1.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml)
