@@ -10,6 +10,7 @@
 [![GH Kube-Proxy - ipvs](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml)
 [![GH KPNG - nftables](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-nftables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-nftables.yaml)
 [![GH KPNG - ipvs](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-ipvs.yaml)
+[![GH Cilium 1.11.0](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml)
 
 ## Problem
 
