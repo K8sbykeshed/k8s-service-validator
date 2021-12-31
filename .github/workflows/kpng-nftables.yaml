@@ -1,7 +1,5 @@
-name: GH KPNG - nftables
+name: kPNG nftables backend
 on:
-  # Trigger the workflow on push or pull request,
-  # but only for the main branch
   push:
     branches:
       - main
@@ -23,7 +21,7 @@ jobs:
       - run: |
           pushd kpng/hack
             sed -i 's/^#build/build/' kpng-local-up.sh
-            IMAGE=knabben/kpng:nft ./kpng-local-up.sh
+            CONFIG_MAP_NAME=kpng E2E_BACKEND=nft BACKEND=nft IMAGE=ci/kpng:latest ./kpng-local-up.sh
           popd
           kubectl wait --for=condition=ready -n kube-system -l k8s-app=calico-node pods --timeout=60s
           ./hack/install_metallb.sh
