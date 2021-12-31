@@ -68,7 +68,7 @@ func TestBasicService(t *testing.T) { // nolint
 		}).Feature()
 
 	// Test session affinity clientIP
-	featureSessionAffinity := features.New("SessionAffinity").WithLabel("type", "cluster_ip_sessionAffinity").
+	_ = features.New("SessionAffinity").WithLabel("type", "cluster_ip_sessionAffinity").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// add new label to two pods, pod-3 and pod-4
@@ -343,8 +343,7 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer, featureEndlessService, featureHairpin,
-		featureSessionAffinity)
+	testenv.Test(t, featureClusterIP, featureNodePort, featureLoadBalancer, featureEndlessService, featureHairpin)
 }
 
 func TestExternalService(t *testing.T) {
