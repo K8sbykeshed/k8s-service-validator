@@ -4,7 +4,7 @@ SHELL:=/usr/bin/env bash
 COLOR:=\\033[36m
 NOCOLOR:=\\033[0m
 
-.PHONY: test
+.PHONY: test build docker-build docker-push
 
 ##@ Build
 
@@ -14,6 +14,11 @@ test: ## Runs tests locally
 build: ## Build tests in a binary
 	go test -v -c -o svc-test ./tests
 
+docker-build: ## Build project into docker container image
+    docker build . -t yzaccc/k8s-service-validator:latest
+
+docker-push: ## Push the project docker image to dockerhub
+    docker push yzaccc/k8s-service-validator:latest
 
 ##@ Verify
 .PHONY: verify verify-golangci-lint verify-go-mod
