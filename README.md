@@ -89,7 +89,14 @@ $ make build
 $ ./svc-test
 ```
 
-### Using E2E tests
+### Running only specific tests
+
+The binary supports flags to filter tests, examples:
+
+```
+```
+
+### Using upstream E2E tests
 
 Download the Kubernetes repository and build the tests binary
 
@@ -191,7 +198,6 @@ x-12348/pod-4   .               .               .               .
 ## Sketch
 
 ![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)
-
 
 # Plan
 - Initial demo at sig-network (done), establishing agreement on future of service tests.

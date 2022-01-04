@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,18 +29,22 @@ const (
 // KubeManager is the core struct to manage kubernetes entities
 type KubeManager struct {
 	config    *rest.Config
-	Logger    *zap.Logger
 	clientSet *kubernetes.Clientset
 }
 
 // NewKubeManager returns a new KubeManager
-func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config, logger *zap.Logger) *KubeManager {
-	return &KubeManager{clientSet: cs, config: config, Logger: logger}
+func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config) *KubeManager {
+	return &KubeManager{clientSet: cs, config: config}
+}
+
+// GetClientSet returns the Kubernetes clientset
+func (k *KubeManager) GetClientSet() *kubernetes.Clientset {
+	return k.clientSet
 }
 
 // StartPods start all pods and wait them to be up
 func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
-	k.Logger.Info("Initializing Pods in the cluster.")
+	zap.L().Info("Initializing Pods in the cluster.")
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
@@ -53,7 +58,7 @@ func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 		for i, pod := range ns.Pods {
 			// Set NodeName on pods being created
 			pod.NodeName = nodes[i].Name
-			k.Logger.Debug("creating/updating pod.",
+			zap.L().Debug("creating/updating pod.",
 				zap.String("namespace", ns.Name),
 				zap.String("name", pod.Name),
 				zap.String("node", pod.NodeName),
@@ -77,7 +82,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	var err error
 
 	kubePod := modelPod.ToK8SSpec()
-	k.Logger.Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
+	zap.L().Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
 
 	if err := ek.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
 		return errors.Wrapf(err, "unable to wait for pod %s/%s", modelPod.Namespace, modelPod.Name)
@@ -222,7 +227,8 @@ func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, ad
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
-	k.Logger.Debug("commandDebugString " + commandDebugString)
+	zap.L().Debug("commandDebugString " + commandDebugString)
+
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
 		return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
@@ -248,7 +254,7 @@ func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string,
 
 // WaitForHTTPServers waits for all webservers to be up, on all protocols, and then validates them using the same probe logic as the rest of the suite.
 func (k *KubeManager) WaitForHTTPServers(model *Model) error {
-	k.Logger.Info("Waiting for HTTP servers (ports 80 and 81) to become ready")
+	zap.L().Info("Waiting for HTTP servers (ports 80 and 81) to become ready")
 
 	testCases := map[string]*TestCase{}
 	ports, protocols := model.AllPortsProtocol()
@@ -277,10 +283,10 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			ProbePodToPodConnectivity(k, model, testCase, false)
 			_, wrong, _, _ := reachability.Summary(false)
 			if wrong == 0 {
-				k.Logger.Info("Server is ready", zap.String("case", caseName))
+				zap.L().Info("Server is ready", zap.String("case", caseName))
 				delete(notReady, caseName)
 			} else {
-				k.Logger.Info("Server is not ready", zap.String("case", caseName))
+				zap.L().Info("Server is not ready", zap.String("case", caseName))
 			}
 		}
 		if len(notReady) == 0 {

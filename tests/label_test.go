@@ -51,13 +51,13 @@ func TestLabels(t *testing.T) { // nolint
 			var err error
 
 			// create a disabled service with the label
-			disabledService = kubernetes.NewService(cs, toPod.ClusterIPService())
+			disabledService = kubernetes.NewService(manager.GetClientSet(), toPod.ClusterIPService())
 			if _, err := disabledService.Create(); err != nil {
 				t.Fatal()
 			}
 
 			// create a service without the label, but will be toggled later
-			toggledService = kubernetes.NewService(cs, toPod.ClusterIPService())
+			toggledService = kubernetes.NewService(manager.GetClientSet(), toPod.ClusterIPService())
 			if _, err := toggledService.Create(); err != nil {
 				t.Fatal()
 			}
@@ -97,42 +97,42 @@ func TestLabels(t *testing.T) { // nolint
 
 	getAssessFunc := func(labelKey, labelValue string) features.Func {
 		return func(_ context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			logger.Info("verify the toggledService is up without", zap.String("label", labelKey))
+			zap.L().Info("verify the toggledService is up without", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false, false), t)
 
-			logger.Info("verify the disabledService is not up with", zap.String("label", labelKey))
+			zap.L().Info("verify the disabledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false, false), t)
 
-			logger.Info("add label to the toggledService", zap.String("label", labelKey))
+			zap.L().Info("add label to the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.SetLabel(labelKey, labelValue), t)
 
-			logger.Info("verify the toggledService is not up with", zap.String("label", labelKey))
+			zap.L().Info("verify the toggledService is not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(toggledClusterIP)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false, false), t)
 
-			logger.Info("remove label from the toggledService", zap.String("label", labelKey))
+			zap.L().Info("remove label from the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
 
-			logger.Info("verify the toggledService is up again without", zap.String("label", labelKey))
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			zap.L().Info("verify the toggledService is up again without", zap.String("label", labelKey))
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
 			}, false, false), t)
 
-			logger.Info("verify the disabledService is still not up with", zap.String("label", labelKey))
+			zap.L().Info("verify the disabledService is still not up with", zap.String("label", labelKey))
 			toPod.SetClusterIP(disabledClusterIP)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: downReachability,
 				ServiceType: entities.ClusterIP,
 			}, false, false), t)
