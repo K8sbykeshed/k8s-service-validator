@@ -2,11 +2,12 @@ package matrix
 
 import (
 	"fmt"
-	"k8s.io/client-go/util/homedir"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
+
+	"k8s.io/client-go/util/homedir"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -28,8 +29,6 @@ func NewClientSet() (*kubernetes.Clientset, *rest.Config) {
 	kubeconfig, exists := os.LookupEnv("KUBECONFIG")
 	if !exists {
 		kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
-	} else {
-
 	}
 	if _, err := os.Stat(kubeconfig); err == nil {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
