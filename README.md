@@ -102,13 +102,10 @@ a new random namespace is created.
 
 # Run with Sonobuoy
 ```
-$ brew install sonobuoy
-$ cd to project directory
-$ sonobuoy run --plugin sonobuoy-plugin.yaml --wait
+install sonobuoy: https://github.com/vmware-tanzu/sonobuoy#installation
+$ make sonobuoy-run
 after finished
-$ outfile=$(sonobuoy retrieve) && \
-  mkdir results && tar -xf $outfile -C results &&
-  cat results/plugins/k8s-service-validator-sonobuoy-plugin/*
+$ make sonobuoy-retrieve
 ```
 
 ### Using E2E tests
