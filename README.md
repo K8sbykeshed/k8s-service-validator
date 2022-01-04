@@ -102,7 +102,7 @@ a new random namespace is created.
 
 # Run with Sonobuoy
 ```
-$ brew instal sonobuoy
+$ brew install sonobuoy
 $ cd to project directory
 $ sonobuoy run --plugin sonobuoy-plugin.yaml --wait
 after finished
