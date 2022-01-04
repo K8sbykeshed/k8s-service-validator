@@ -2,7 +2,9 @@ package matrix
 
 import (
 	"fmt"
+	"k8s.io/client-go/util/homedir"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -12,7 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 )
 
 // GetNamespace returns a random namespace starting on x
@@ -23,10 +24,23 @@ func GetNamespace() string {
 
 // NewClientSet returns the Kubernetes clientset
 func NewClientSet() (*kubernetes.Clientset, *rest.Config) {
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		panic(err.Error())
+	var config *rest.Config
+	kubeconfig, exists := os.LookupEnv("KUBECONFIG")
+	if !exists {
+		kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
+	} else {
+
+	}
+	if _, err := os.Stat(kubeconfig); err == nil {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)

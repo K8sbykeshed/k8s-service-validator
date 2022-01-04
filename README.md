@@ -80,6 +80,17 @@ $ make build
 $ ./svc-test
 ```
 
+# Run with Sonobuoy
+```
+$ brew instal sonobuoy
+$ cd to project directory
+$ sonobuoy run --plugin sonobuoy-plugin.yaml --wait
+after finished
+$ outfile=$(sonobuoy retrieve) && \
+  mkdir results && tar -xf $outfile -C results &&
+  cat results/plugins/k8s-service-validator-sonobuoy-plugin/*
+```
+
 ### Using E2E tests
 
 Download the Kubernetes repository and build the tests binary
@@ -125,7 +136,10 @@ _output/bin/e2e.test -ginkgo.focus="\[sig-network\]" \
     --kubeconfig=.kube/config
 ```
 
-You must have a Kubernetes configuration at `$HOME/.kube/config`
+We use kubeconfig fetched from below, whichever works from the top of the list:
+1. env KUBECONFIG
+2. Kubernetes configuration at `$HOME/.kube/config`
+3. In cluster config.
 
 ### Running on a K8S cluster
 
