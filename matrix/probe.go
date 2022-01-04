@@ -14,6 +14,8 @@ type ProbeJob struct {
 	ToPodDNSDomain string
 	Protocol       v1.Protocol
 	ServiceType    string
+	// ReachTargetPod checks if connection is responded by the target pod, instead of only check successful connection
+	ReachTargetPod bool
 }
 
 // SetServiceType sets the ServiceType for the probeJob
@@ -32,6 +34,7 @@ type ProbeJobResults struct {
 	IsConnected bool
 	Err         error
 	Command     string
+	Endpoint    string
 }
 
 // probeWorker continues polling a pod connectivity status, until the incoming "jobs" channel is closed, and writes results back out to the "results" channel.
@@ -78,28 +81,41 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		}
 
 		podFrom := job.PodFrom
-		connected, command, err := manager.probeConnectivity(
-			podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
-		)
-
+		var connected bool
+		var command string
+		var err error
+		var ep string
+		if job.ReachTargetPod {
+			connected, ep, command, err = manager.ProbeConnectivityWithNc(
+				podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
+			)
+		} else {
+			connected, command, err = manager.ProbeConnectivity(
+				podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
+			)
+		}
+		if job.ReachTargetPod && job.PodTo.Name != ep {
+			connected = false
+		}
 		result := &ProbeJobResults{
 			Job:         job,
 			IsConnected: connected,
 			Err:         err,
 			Command:     command,
+			Endpoint:    ep,
 		}
 		results <- result
 	}
 }
 
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
-func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase) {
-	numberOfWorkers := 3 // See https://github.com/kubernetes/kubernetes/pull/97690
+func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase, reachTargetPod bool) {
+	numberOfWorkers := 4 // See https://github.com/kubernetes/kubernetes/pull/97690
 	allPods := model.AllPods()
 	size := len(allPods) * len(allPods)
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
-	for i := 0; i < numberOfWorkers; i++ {
+	for i := 1; i < numberOfWorkers; i++ {
 		go probeWorker(k8s, jobs, results)
 	}
 
@@ -118,6 +134,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 				ToPodDNSDomain: model.dnsDomain,
 				Protocol:       testCase.Protocol,
 				ServiceType:    testCase.ServiceType,
+				ReachTargetPod: reachTargetPod,
 			}
 		}
 	}
@@ -144,14 +161,14 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 		if job.PodTo.SkipProbe {
 			k8s.Logger.Debug("Skipping probe", fields...)
 		} else {
-			k8s.Logger.Debug("Probing.", fields...)
+			k8s.Logger.Debug("Validating matrix.", fields...)
 		}
 
 		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {
-			k8s.Logger.Error("Validation FAILED!",
+			k8s.Logger.Error("Connection blocked!",
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
 			)

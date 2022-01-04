@@ -1,3 +1,6 @@
 bin/
 .idea/
 svc-test
+test-app/
+godepgraph.png
+.DS_Store

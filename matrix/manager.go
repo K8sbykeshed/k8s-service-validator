@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
@@ -16,7 +18,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	k8s "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	ek "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 )
 
 const (
@@ -77,7 +79,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	kubePod := modelPod.ToK8SSpec()
 	k.Logger.Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
 
-	if err := k8s.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
+	if err := ek.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
 		return errors.Wrapf(err, "unable to wait for pod %s/%s", modelPod.Namespace, modelPod.Name)
 	}
 	if kubePod, err = k.GetPod(modelPod.Namespace, modelPod.Name); err != nil {
@@ -90,7 +92,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	return nil
 }
 
-// CreatePod is a convenience function for pod setup.
+// CreatePod is a convenience function for pod setup
 func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 	nsName := podSpec.Namespace
 	pod, err := k.clientSet.CoreV1().Pods(nsName).Create(context.TODO(), podSpec, metav1.CreateOptions{})
@@ -98,6 +100,30 @@ func (k *KubeManager) CreatePod(podSpec *v1.Pod) (*v1.Pod, error) {
 		return nil, errors.Wrapf(err, "unable to create pod %s/%s", nsName, podSpec.Name)
 	}
 	return pod, nil
+}
+
+// AddLabelToPod adds a label to a pod
+func (k *KubeManager) AddLabelToPod(podSpec *entities.Pod, key, value string) error {
+	nsName := podSpec.Namespace
+
+	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
+		[]byte(`[{"op": "add", "path": "/metadata/labels/`+key+`", "value": "`+value+`"}]`), metav1.PatchOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "unable to add label to pod %s/%s label: %s:%s", nsName, podSpec.Name, key, value)
+	}
+	return nil
+}
+
+// RemoveLabelFromPod removes a label frm a pod
+func (k *KubeManager) RemoveLabelFromPod(podSpec *entities.Pod, key string) error {
+	nsName := podSpec.Namespace
+
+	_, err := k.clientSet.CoreV1().Pods(nsName).Patch(context.TODO(), podSpec.Name, types.JSONPatchType,
+		[]byte(`[{"op": "remove", "path": "/metadata/labels/`+key+`"}]`), metav1.PatchOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "unable to remove label from pod %s/%s label key: %s", nsName, podSpec.Name, key)
+	}
+	return nil
 }
 
 // DeletePod deletes pod from a namespace
@@ -158,7 +184,7 @@ func (k *KubeManager) GetPod(ns, name string) (*v1.Pod, error) {
 }
 
 // probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
+func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
 	var cmd []string
 	port := strconv.Itoa(toPort)
 
@@ -174,15 +200,41 @@ func (k *KubeManager) probeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command: err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:"+
+			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 		return false, commandDebugString, nil
 	}
 	return true, commandDebugString, nil
 }
 
+// ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
+func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
+	var cmd []string
+	port := strconv.Itoa(toPort)
+
+	switch protocol {
+	case v1.ProtocolTCP:
+		cmd = []string{"nc", "-w5", addrTo, port}
+	case v1.ProtocolUDP:
+		cmd = []string{"nc", "-u", "-w5", addrTo, port}
+	default:
+		fmt.Println(fmt.Printf("protocol %s not supported", protocol))
+	}
+
+	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
+	k.Logger.Debug("commandDebugString " + commandDebugString)
+	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+	if err != nil {
+		return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
+			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+	}
+	ep := strings.TrimSpace(stdout)
+	return true, ep, commandDebugString, nil
+}
+
 // executeRemoteCommand executes a remote shell command on the given pod.
 func (k *KubeManager) executeRemoteCommand(namespace, pod, containerName string, command []string) (string, string, error) { // nolint
-	return k8s.ExecWithOptions(k.config, k.clientSet, &k8s.ExecOptions{
+	return ek.ExecWithOptions(k.config, k.clientSet, &ek.ExecOptions{
 		Command:            command,
 		Namespace:          namespace,
 		PodName:            pod,
@@ -222,7 +274,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			}
 			reachability := NewReachability(model.AllPods(), true)
 			testCase.Reachability = reachability
-			ProbePodToPodConnectivity(k, model, testCase)
+			ProbePodToPodConnectivity(k, model, testCase, false)
 			_, wrong, _, _ := reachability.Summary(false)
 			if wrong == 0 {
 				k.Logger.Info("Server is ready", zap.String("case", caseName))
@@ -237,4 +289,44 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 		time.Sleep(waitInterval)
 	}
 	return errors.Errorf("after %d tries, %d HTTP servers are not ready", maxTries, len(notReady))
+}
+
+// CreateServiceFromTemplate creates k8s service based on template
+func CreateServiceFromTemplate(cs *kubernetes.Clientset, t entities.ServiceTemplate) (string, ek.ServiceBase, string, error) { //nolint
+	entities.IncreaseServiceID()
+
+	servicePorts := make([]v1.ServicePort, len(t.ProtocolPorts))
+	for i, sp := range t.ProtocolPorts {
+		servicePorts[i] = v1.ServicePort{
+			Name:     fmt.Sprintf("service-port-%s-%v", strings.ToLower(string(sp.Protocol)), sp.Port),
+			Protocol: sp.Protocol,
+			Port:     sp.Port,
+		}
+	}
+
+	s := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%d", t.Name, entities.SvcID.ID),
+			Namespace: t.Namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Selector: t.Selector,
+			Ports:    servicePorts,
+		},
+	}
+	if t.SessionAffinity {
+		s.Spec.SessionAffinity = "ClientIP"
+	}
+
+	var service ek.ServiceBase = ek.NewService(cs, s)
+	if _, err := service.Create(); err != nil {
+		return "", nil, "", errors.Wrapf(err, "failed to create service")
+	}
+
+	// wait for final status
+	clusterIP, err := service.WaitForClusterIP()
+	if err != nil || clusterIP == "" {
+		return "", nil, "", errors.Wrapf(err, "no cluster IP available")
+	}
+	return s.Name, service, clusterIP, nil
 }

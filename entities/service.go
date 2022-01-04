@@ -20,14 +20,21 @@ const (
 	Allprotocols = "allprotocols"
 )
 
-type Service struct {
-	Name      string
-	Namespace string
-	Selector  map[string]string
+type ServiceTemplate struct {
+	Name            string
+	Namespace       string
+	Selector        map[string]string
+	ProtocolPorts   []ProtocolPortPair
+	SessionAffinity bool
 }
 
-// serviceID prevent conflicts when creating multiple services for same pod
-var svcID *ServiceID
+type ProtocolPortPair struct {
+	Protocol v1.Protocol
+	Port     int32
+}
+
+// SvcID prevent conflicts when creating multiple services for same pod
+var SvcID *ServiceID
 
 type ServiceID struct {
 	mu sync.Mutex
@@ -39,25 +46,11 @@ func NewService(p *Pod) *v1.Service {
 	IncreaseServiceID()
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), svcID.ID),
+			Name:      fmt.Sprintf("%s-%d", p.ServiceName(), SvcID.ID),
 			Namespace: p.Namespace,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: p.LabelSelector(),
-		},
-	}
-}
-
-// NewService returns the service boilerplate based on service template
-func NewServiceFromTemplate(t Service) *v1.Service {
-	IncreaseServiceID()
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%d", t.Name, svcID.ID),
-			Namespace: t.Namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Selector: t.Selector,
 		},
 	}
 }
@@ -127,10 +120,10 @@ func (p *Pod) NodePortLocalService() *v1.Service {
 }
 
 func IncreaseServiceID() {
-	if svcID == nil {
-		svcID = &ServiceID{}
+	if SvcID == nil {
+		SvcID = &ServiceID{}
 	}
-	svcID.mu.Lock()
-	defer svcID.mu.Unlock()
-	svcID.ID++
+	SvcID.mu.Lock()
+	defer SvcID.mu.Unlock()
+	SvcID.ID++
 }
