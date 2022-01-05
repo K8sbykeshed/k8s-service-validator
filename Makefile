@@ -28,7 +28,10 @@ sonobuoy-retrieve: ## Retrieve results from sonobuoy plugin
 	$(eval OUTFILE=$(shell sonobuoy retrieve))
 	echo $(OUTFILE)
 	mkdir results && tar -xf $(OUTFILE) -C results
-	cat results/plugins/k8s-service-validator-sonobuoy-plugin/*
+	cat results/plugins/k8s-service-validator-sonobuoy-plugin/*.yaml
+
+clean: ## Clean up sonobuoy results and output binary
+	rm -rf results *_sonobuoy_* svc-test
 
 ##@ Verify
 .PHONY: verify verify-golangci-lint verify-go-mod
