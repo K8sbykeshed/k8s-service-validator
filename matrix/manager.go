@@ -221,9 +221,9 @@ func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, ad
 
 	switch protocol {
 	case v1.ProtocolTCP:
-		cmd = []string{"nc", "-w5", addrTo, port}
+		cmd = []string{"nc", "-w10", addrTo, port}
 	case v1.ProtocolUDP:
-		cmd = []string{"nc", "-u", "-w5", addrTo, port}
+		cmd = []string{"nc", "-u", "-w10", addrTo, port}
 	default:
 		zap.L().Error(fmt.Sprintf("protocol %s not supported", protocol))
 	}

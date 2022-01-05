@@ -312,7 +312,7 @@ func TestBasicService(t *testing.T) { // nolint
 					err error
 					ips []entities.ExternalIP
 				)
-				// Create a load balancers with TCP/UDP ports, based in the service spec
+				// Create a load balancer with TCP/UDP ports, based in the service spec
 				serviceTCP := kubernetes.NewService(manager.GetClientSet(), pod.LoadBalancerServiceByProtocol(v1.ProtocolTCP))
 				if _, err := serviceTCP.Create(); err != nil {
 					t.Error(err)
