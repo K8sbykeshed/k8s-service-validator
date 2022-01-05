@@ -9,6 +9,7 @@ import (
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
+	"go.uber.org/zap"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 
@@ -34,10 +35,10 @@ func podUDPStaleServer(podName string, node *v1.Node) (*entities.Pod, error) {
 		NodeName: node.Name,
 	}
 
-	if _, err := ma.CreatePod(pod.ToK8SSpec()); err != nil {
+	if _, err := manager.CreatePod(pod.ToK8SSpec()); err != nil {
 		return nil, err
 	}
-	if err := ma.WaitAndSetIPs(pod); err != nil {
+	if err := manager.WaitAndSetIPs(pod); err != nil {
 		return nil, err
 	}
 
@@ -58,10 +59,10 @@ func podUDPStaleClient(podName, clusterIP string, node *v1.Node) (*entities.Pod,
 		},
 	}
 
-	if _, err := ma.CreatePod(pod.ToK8SSpec()); err != nil {
+	if _, err := manager.CreatePod(pod.ToK8SSpec()); err != nil {
 		return nil, err
 	}
-	if err := ma.WaitAndSetIPs(pod); err != nil {
+	if err := manager.WaitAndSetIPs(pod); err != nil {
 		return nil, err
 	}
 
@@ -91,10 +92,10 @@ func TestUDPInitContainer(t *testing.T) {
 			// create and start namespace and ready nodes
 			udpNamespaceName = matrix.GetNamespace()
 			udpNamespace := entities.Namespace{Name: udpNamespaceName}
-			if _, err := ma.CreateNamespace(udpNamespace.Spec()); err != nil {
+			if _, err := manager.CreateNamespace(udpNamespace.Spec()); err != nil {
 				t.Fatal(err)
 			}
-			if scheduledNodes, err = ma.GetReadyNodes(); err != nil {
+			if scheduledNodes, err = manager.GetReadyNodes(); err != nil {
 				t.Fatal(err)
 			}
 
@@ -105,7 +106,7 @@ func TestUDPInitContainer(t *testing.T) {
 
 			// create a cluster service based on backend server
 			clusterSvc := firstPod.ClusterIPService()
-			var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
+			var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), clusterSvc)
 			if _, err := service.Create(); err != nil {
 				t.Fatal(err)
 			}
@@ -135,14 +136,14 @@ func TestUDPInitContainer(t *testing.T) {
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			logger.Info("Cleanup namespace.")
-			if err := ma.DeleteNamespaces([]string{udpNamespaceName}); err != nil {
+			zap.L().Info("Cleanup namespace.")
+			if err := manager.DeleteNamespaces([]string{udpNamespaceName}); err != nil {
 				t.Fatal(err)
 			}
 			return ctx
 		}).
 		Assess("should be reachable", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating UDP and conntrack entries")
+			zap.L().Info("Creating UDP and conntrack entries")
 			reachability := matrix.NewReachability(udpModel.AllPods(), true)
 
 			// Note that the fact that Endpoints object already exists, does NOT mean
@@ -152,7 +153,7 @@ func TestUDPInitContainer(t *testing.T) {
 			// Based on the above check if the pod receives the traffic.
 
 			testCase := matrix.TestCase{ToPort: 80, Protocol: v1.ProtocolUDP, Reachability: reachability, ServiceType: entities.ClusterIP}
-			wrong := matrix.ValidateOrFail(ma, &udpModel, &testCase, false, false)
+			wrong := matrix.ValidateOrFail(manager, &udpModel, &testCase, false, false)
 			if wrong > 0 {
 				t.Error("Wrong result number ")
 			}

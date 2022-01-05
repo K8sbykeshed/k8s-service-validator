@@ -97,7 +97,18 @@ after finished
 $ make sonobuoy-retrieve
 ```
 
-### Using E2E tests
+### Running only specific tests
+
+The binary supports flags to run only UDP stale endpoints, examples:
+
+```
+go test -v ./tests/ -labels="type=udp_stale_endpoint"
+```
+
+Other flags include `-debug` for verbose output and `-namespace` for pick one to run tests on, when not specified 
+a new random namespace is created. 
+
+### Using upstream E2E tests
 
 Download the Kubernetes repository and build the tests binary
 
@@ -203,12 +214,11 @@ x-12348/pod-4   .               .               .               .
 
 ![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)
 
-
 # Plan
 - Initial demo at sig-network (done), establishing agreement on future of service tests.
 - Establish parity w/ existing sig-network tests
 - Use this repo to do all the validation for KPNG
-- demo KPNG with the new service lb tests at sig-network
+- demo KPNG with the new service lb tests at sig-networREADME.mdk
 - establish a kubernetes-sigs/... repo for this framework, to standardize the CI for KPNG 
 - use these tests as a new test-infra job in sig-network for in-tree kube proxy
 - eventually remove old service lb tests from sig-network if community agrees
