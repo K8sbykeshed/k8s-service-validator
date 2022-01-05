@@ -91,10 +91,14 @@ $ ./svc-test
 
 ### Running only specific tests
 
-The binary supports flags to filter tests, examples:
+The binary supports flags to run only UDP stale endpoints, examples:
 
 ```
+go test -v ./tests/ -labels="type=udp_stale_endpoint"
 ```
+
+Other flags include `-debug` for verbose output and `-namespace` for pick one to run tests on, when not specified 
+a new random namespace is created. 
 
 ### Using upstream E2E tests
 

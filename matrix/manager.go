@@ -44,7 +44,7 @@ func (k *KubeManager) GetClientSet() *kubernetes.Clientset {
 
 // StartPods start all pods and wait them to be up
 func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
-	zap.L().Info("Initializing Pods in the cluster.")
+	zap.L().Info("Creating test pods in the cluster.")
 	for _, ns := range model.Namespaces { // create namespaces
 		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
 			return err
@@ -199,14 +199,16 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	case v1.ProtocolUDP:
 		cmd = []string{"/agnhost", "connect", net.JoinHostPort(addrTo, port), "--timeout=5s", "--protocol=udp"}
 	default:
-		fmt.Println(fmt.Printf("protocol %s not supported", protocol))
+		zap.L().Error(fmt.Sprintf("protocol %s not supported", protocol))
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
-	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+	_, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 	if err != nil {
-		fmt.Println(fmt.Printf("%s/%s -> %s: error when running command:"+
-			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		zap.L().Error(
+			fmt.Sprintf("Can't connect: %s/%s -> %s", nsFrom, podFrom, addrTo),
+			zap.String("stderr", stderr), zap.Error(err),
+		)
 		return false, commandDebugString, nil
 	}
 	return true, commandDebugString, nil
@@ -223,7 +225,7 @@ func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, ad
 	case v1.ProtocolUDP:
 		cmd = []string{"nc", "-u", "-w5", addrTo, port}
 	default:
-		fmt.Println(fmt.Printf("protocol %s not supported", protocol))
+		zap.L().Error(fmt.Sprintf("protocol %s not supported", protocol))
 	}
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
@@ -283,13 +285,14 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			ProbePodToPodConnectivity(k, model, testCase, false)
 			_, wrong, _, _ := reachability.Summary(false)
 			if wrong == 0 {
-				zap.L().Info("Server is ready", zap.String("case", caseName))
+				zap.L().Debug("Server is ready", zap.String("case", caseName))
 				delete(notReady, caseName)
 			} else {
-				zap.L().Info("Server is not ready", zap.String("case", caseName))
+				zap.L().Error("Server is not ready", zap.String("case", caseName))
 			}
 		}
 		if len(notReady) == 0 {
+			zap.L().Info("Pods are ready, starting the test suite.")
 			return nil
 		}
 		time.Sleep(waitInterval)

@@ -2,15 +2,13 @@ package tests
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
-
-	// flag "github.com/spf13/pflag"
-	"flag"
 
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	"go.uber.org/zap"
@@ -57,14 +55,12 @@ func NewLoggerConfig(options ...zap.Option) *zap.Logger {
 }
 
 func TestMain(m *testing.M) {
-	// flag.Parse()
-
-	zap.ReplaceGlobals(NewLoggerConfig())
-
 	cfg, err := envconf.NewFromFlags()
 	if err != nil {
 		log.Fatalf("envconf failed: %s", err)
 	}
+
+	zap.ReplaceGlobals(NewLoggerConfig())
 
 	clientSet, config := matrix.NewClientSet()
 	manager = matrix.NewKubeManager(clientSet, config)

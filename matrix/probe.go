@@ -168,17 +168,18 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {
-			zap.L().Error("Connection blocked!",
+			fields := []zap.Field{
+				zap.String("result", result.Command),
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
-			)
+			}
 			if result.Err != nil {
-				zap.L().Error("ERROR", zap.String("err", result.Err.Error()))
+				zap.L().Error("Command error", zap.String("err", result.Err.Error()))
 			}
 			if expected {
-				zap.L().Warn("Expected allowed pod connection was instead BLOCKED", zap.String("result", result.Command))
+				zap.L().Debug("Expected allowed pod connection was instead BLOCKED", fields...)
 			} else {
-				zap.L().Warn("Expected blocked pod connection was instead ALLOWED", zap.String("result", result.Command))
+				zap.L().Debug("Expected blocked pod connection was instead ALLOWED", fields...)
 			}
 		}
 	}

@@ -16,9 +16,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
 
 // TestBasicService starts up the basic Kubernetes services available
 func TestBasicService(t *testing.T) { // nolint
@@ -38,15 +36,15 @@ func TestBasicService(t *testing.T) { // nolint
 				clusterSvc := pod.ClusterIPService()
 				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), clusterSvc)
 				if _, err := service.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// wait for final status
 				if result, err = service.WaitForEndpoint(); err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 				if clusterIP, err = service.WaitForClusterIP(); err != nil || clusterIP == "" {
-					t.Fatal(errors.New("no cluster IP available"))
+					t.Error(errors.New("no cluster IP available"))
 				}
 				pod.SetClusterIP(clusterIP)
 				services = append(services, service.(*kubernetes.Service))
@@ -82,7 +80,7 @@ func TestBasicService(t *testing.T) { // nolint
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
 				if err := manager.AddLabelToPod(pod, labelKey, labelValue); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 			}
 			// create cluster IP service with the new label and session affinity: clientIP
@@ -97,7 +95,7 @@ func TestBasicService(t *testing.T) { // nolint
 				},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			for _, p := range pods {
@@ -113,7 +111,7 @@ func TestBasicService(t *testing.T) { // nolint
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
 				if err := manager.RemoveLabelFromPod(pod, "app"); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 			}
 			tools.ResetTestBoard(t, services, model)
@@ -128,10 +126,10 @@ func TestBasicService(t *testing.T) { // nolint
 			for _, p := range pods {
 				connected, endpoint, connectCmd, err := manager.ProbeConnectivityWithNc(namespace, p.Name, p.Containers[0].Name, clusterIPWithSessionAffinity, v1.ProtocolTCP, 80)
 				if err != nil {
-					t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
+					t.Error(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
 				}
 				if !connected {
-					t.Fatal(errors.New("failed to connect the ClusterIP service with sessionAffinity"))
+					t.Error(errors.New("failed to connect the ClusterIP service with sessionAffinity"))
 				}
 				fromToPeer[p.Name] = endpoint
 			}
@@ -171,7 +169,7 @@ func TestBasicService(t *testing.T) { // nolint
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: v1.ProtocolTCP, Port: endlessServicePort}},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			for _, pod := range pods {
@@ -207,7 +205,7 @@ func TestBasicService(t *testing.T) { // nolint
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: pods[0].Containers[0].Protocol, Port: 80}},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			pods[0].SetServiceName(serviceName)
@@ -238,17 +236,17 @@ func TestBasicService(t *testing.T) { // nolint
 				// Create a kubernetes service based in the service spec
 				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), clusterSvc)
 				if _, err := service.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Wait for final status
 				result, err := service.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 				nodePort, err := service.WaitForNodePort()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Set pod specification on entity model
@@ -287,38 +285,38 @@ func TestBasicService(t *testing.T) { // nolint
 				// Create a load balancers with TCP/UDP ports, based in the service spec
 				serviceTCP := kubernetes.NewService(manager.GetClientSet(), pod.LoadBalancerServiceByProtocol(v1.ProtocolTCP))
 				if _, err := serviceTCP.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 				serviceUDP := kubernetes.NewService(manager.GetClientSet(), pod.LoadBalancerServiceByProtocol(v1.ProtocolUDP))
 				if _, err := serviceUDP.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Wait for final status
 				result, err := serviceTCP.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 
 				result, err = serviceUDP.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 
 				ipsForTCP, err := serviceTCP.WaitForExternalIP()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 				ips = append(ips, entities.NewExternalIPs(ipsForTCP, v1.ProtocolTCP)...)
 
 				ipsForUDP, err := serviceUDP.WaitForExternalIP()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 				ips = append(ips, entities.NewExternalIPs(ipsForUDP, v1.ProtocolUDP)...)
 
 				if len(ips) == 0 {
-					t.Fatal(errors.New("invalid external UDP IPs setup"))
+					t.Error(errors.New("invalid external UDP IPs setup"))
 				}
 
 				// Set pod specification on entity model
@@ -368,17 +366,17 @@ func TestExternalService(t *testing.T) {
 			// Create a kubernetes service based in the service spec
 			var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), pods[0].NodePortLocalService())
 			if _, err := service.Create(); err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			// Wait for final status
 			result, err := service.WaitForEndpoint()
 			if err != nil || !result {
-				t.Fatal(errors.New("no endpoint available"))
+				t.Error(errors.New("no endpoint available"))
 			}
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			// Set pod specification on entity model
@@ -418,7 +416,7 @@ func TestExternalService(t *testing.T) {
 				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), pod.ExternalNameService(domain))
 				k8sSvc, err := service.Create()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				pod.SetServiceName(k8sSvc.Name)
