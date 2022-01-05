@@ -5,6 +5,7 @@ RUN go test -v -c -o svc-test ./tests
 
 FROM debian:stretch-slim
 COPY --from=build /k8s-service-validator/svc-test /svc-test
-#RUN apk add --update curl && apk add bash && rm -rf /var/cache/apk/*
+COPY --from=build /k8s-service-validator/run.sh /run.sh
 
-CMD ["./svc-test"]
+RUN chmod +x ./run.sh
+ENTRYPOINT ["./run.sh"]
