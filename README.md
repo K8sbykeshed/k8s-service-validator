@@ -1,6 +1,6 @@
 # Demos
 
-- Initial sig-network demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8
+- The original demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8, which was presented to ~10+ people at sig-network.
 
 
 # K8S Service-API Table Tests
@@ -17,8 +17,10 @@
 
 ## Problem
 
-The current upstream K8s sig-network tests are difficult to interpret in terms of failures, and
-schedule pods randomly to nodes, while fixing endpoints to the 1st node in a list.
+The upstream sig-network tests (curated by the kubernetes organization):
+- difficult to interpret in terms of failures
+- schedule pods randomly to nodes, while fixing endpoints to the 1st node in a list making them non-deterministic for failures
+- dont use positive and negative controls
 
 Although we cant deprecate these tests - b/c of their inertia, we need a better tool to diagnose
 Service / kube-proxy implementations across providers.  Examples of such providers are:
@@ -29,7 +31,7 @@ Service / kube-proxy implementations across providers.  Examples of such provide
 - Calico's proxying options (https://thenewstack.io/beyond-kube-proxy-tigera-calico-harnesses-ebpf-for-a-faster-data-plane/)
 - ... others ? feel free to PR / add here ! ...
 
-As these implementations of kube proxy diverge over time, knowing wether loadbalancing is failing due to the source
+The implementations of kube proxy diverge over time, knowing wether loadbalancing is failing due to the source
 or target of traffic, wether all node proxies or just a few are broken, and wether configurations like node-local
 endpoints, or terminating endpoint scenarios are causing specific issues, becomes increasingly important for comparing services.
 
