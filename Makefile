@@ -11,6 +11,9 @@ NOCOLOR:=\\033[0m
 test: ## Runs tests locally
 	go test -v ./tests
 
+summary: ## Summarize tests
+	gotestsum --format dots --hide-summary=skipped -- ./tests/...
+
 build: ## Build tests in a binary
 	go test -v -c -o svc-test ./tests
 
@@ -34,6 +37,7 @@ clean: ## Clean up sonobuoy results and output binary
 	rm -rf results *_sonobuoy_* svc-test
 
 ##@ Verify
+
 .PHONY: verify verify-golangci-lint verify-go-mod
 
 verify: verify-golangci-lint verify-go-mod ## Runs verification scripts to ensure correct execution
