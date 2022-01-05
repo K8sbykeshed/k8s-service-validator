@@ -21,9 +21,9 @@ jobs:
       - run: |
           pushd kpng/hack
             sed -i 's/^#build/build/' kpng-local-up.sh
-            CONFIG_MAP_NAME=kpng E2E_BACKEND=nft BACKEND=nft IMAGE=ci/kpng:latest ./kpng-local-up.sh
+            SERVICE_ACCOUNT_NAME=kpng NAMESPACE=kube-system CONFIG_MAP_NAME=kpng E2E_BACKEND=nft BACKEND=nft IMAGE=ci/kpng:latest ./kpng-local-up.sh
           popd
-          kubectl wait --for=condition=ready -n kube-system -l k8s-app=calico-node pods --timeout=60s
+          kubectl wait --for=condition=ready -n kube-system -l k8s-app=calico-node pods --timeout=120s
           ./hack/install_metallb.sh
       - run: |
           go install gotest.tools/gotestsum@latest
