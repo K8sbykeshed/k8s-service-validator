@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
@@ -16,7 +17,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
 
-var ctx = context.Background()
+var (
+	ctx   = context.Background()
+	delay = 10 * time.Second
+)
 
 // TestBasicService starts up the basic Kubernetes services available
 func TestBasicService(t *testing.T) { // nolint
@@ -380,17 +384,20 @@ func TestExternalService(t *testing.T) {
 				t.Error(errors.New("no endpoint available"))
 			}
 
+			// required for wait complete rules creation
+			time.Sleep(delay)
+
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
 				t.Error(err)
 			}
 
-			zap.L().Debug("Nodeport for traffic local policy.", zap.Int32("nodeport", nodePort))
-
 			// Set pod specification on entity model
 			for _, pod := range pods {
 				pod.SetToPort(nodePort)
 			}
+
+			zap.L().Debug("Nodeport for traffic local policy.", zap.Int32("nodeport", nodePort))
 
 			services = append(services, service.(*kubernetes.Service))
 			return ctx
