@@ -43,6 +43,7 @@ func TestBasicService(t *testing.T) { // nolint
 				if result, err = service.WaitForEndpoint(); err != nil || !result {
 					t.Error(errors.New("no endpoint available"))
 				}
+
 				if clusterIP, err = service.WaitForClusterIP(); err != nil || clusterIP == "" {
 					t.Error(errors.New("no cluster IP available"))
 				}
@@ -244,6 +245,7 @@ func TestBasicService(t *testing.T) { // nolint
 				if err != nil || !result {
 					t.Error(errors.New("no endpoint available"))
 				}
+
 				nodePort, err := service.WaitForNodePort()
 				if err != nil {
 					t.Error(err)
@@ -370,19 +372,26 @@ func TestExternalService(t *testing.T) {
 			}
 
 			// Wait for final status
-			result, err := service.WaitForEndpoint()
-			if err != nil || !result {
+			if _, err := service.WaitForClusterIP(); err != nil {
+				t.Error(errors.New("no clusterIP available"))
+			}
+
+			if _, err := service.WaitForEndpoint(); err != nil {
 				t.Error(errors.New("no endpoint available"))
 			}
+
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
 				t.Error(err)
 			}
 
+			zap.L().Debug("Nodeport for traffic local policy.", zap.Int32("nodeport", nodePort))
+
 			// Set pod specification on entity model
 			for _, pod := range pods {
 				pod.SetToPort(nodePort)
 			}
+
 			services = append(services, service.(*kubernetes.Service))
 			return ctx
 		}).
