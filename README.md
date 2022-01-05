@@ -89,6 +89,14 @@ $ make build
 $ ./svc-test
 ```
 
+# Run with Sonobuoy
+```
+install sonobuoy: https://github.com/vmware-tanzu/sonobuoy#installation
+$ make sonobuoy-run
+after finished
+$ make sonobuoy-retrieve
+```
+
 ### Running only specific tests
 
 The binary supports flags to run only UDP stale endpoints, examples:
