@@ -10,10 +10,13 @@ import (
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
 )
+
+var ctx = context.Background()
 
 // TestBasicService starts up the basic Kubernetes services available
 func TestBasicService(t *testing.T) { // nolint
@@ -31,17 +34,17 @@ func TestBasicService(t *testing.T) { // nolint
 				)
 				// Create a kubernetes service based in the service spec
 				clusterSvc := pod.ClusterIPService()
-				var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
+				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), clusterSvc)
 				if _, err := service.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// wait for final status
 				if result, err = service.WaitForEndpoint(); err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 				if clusterIP, err = service.WaitForClusterIP(); err != nil || clusterIP == "" {
-					t.Fatal(errors.New("no cluster IP available"))
+					t.Error(errors.New("no cluster IP available"))
 				}
 				pod.SetClusterIP(clusterIP)
 				services = append(services, service.(*kubernetes.Service))
@@ -53,15 +56,15 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should be reachable via cluster IP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Testing ClusterIP with TCP protocol.")
+			zap.L().Info("Testing ClusterIP with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.ClusterIP,
 			}, false, false), t)
 
-			ma.Logger.Info("Testing ClusterIP with UDP protocol.")
+			zap.L().Info("Testing ClusterIP with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.ClusterIP,
 			}, false, false), t)
 			return ctx
@@ -76,12 +79,12 @@ func TestBasicService(t *testing.T) { // nolint
 			labelValue := "test-session-affinity"
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
-				if err := ma.AddLabelToPod(pod, labelKey, labelValue); err != nil {
-					t.Fatal(err)
+				if err := manager.AddLabelToPod(pod, labelKey, labelValue); err != nil {
+					t.Error(err)
 				}
 			}
 			// create cluster IP service with the new label and session affinity: clientIP
-			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(manager.GetClientSet(), entities.ServiceTemplate{
 				Name:            "service-session-affinity",
 				Namespace:       namespace,
 				Selector:        map[string]string{labelKey: labelValue},
@@ -92,7 +95,7 @@ func TestBasicService(t *testing.T) { // nolint
 				},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			for _, p := range pods {
@@ -107,47 +110,47 @@ func TestBasicService(t *testing.T) { // nolint
 			// remove label for session affinity on pods
 			podsWithNewLabel := pods[2:]
 			for _, pod := range podsWithNewLabel {
-				if err := ma.RemoveLabelFromPod(pod, "app"); err != nil {
-					t.Fatal(err)
+				if err := manager.RemoveLabelFromPod(pod, "app"); err != nil {
+					t.Error(err)
 				}
 			}
 			tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
 		Assess("should always reach to same pod, even with via different protocol", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Testing ClusterIP session affinity to one pod.")
+			zap.L().Info("Testing ClusterIP session affinity to one pod.")
 
 			clusterIPWithSessionAffinity := pods[3].GetClusterIP()
 			// setup affinity
 			fromToPeer := map[string]string{}
 			for _, p := range pods {
-				connected, endpoint, connectCmd, err := ma.ProbeConnectivityWithNc(namespace, p.Name, p.Containers[0].Name, clusterIPWithSessionAffinity, v1.ProtocolTCP, 80)
+				connected, endpoint, connectCmd, err := manager.ProbeConnectivityWithNc(namespace, p.Name, p.Containers[0].Name, clusterIPWithSessionAffinity, v1.ProtocolTCP, 80)
 				if err != nil {
-					t.Fatal(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
+					t.Error(errors.Wrapf(err, "failed to establish affinity with cmd: %v", connectCmd))
 				}
 				if !connected {
-					t.Fatal(errors.New("failed to connect the ClusterIP service with sessionAffinity"))
+					t.Error(errors.New("failed to connect the ClusterIP service with sessionAffinity"))
 				}
 				fromToPeer[p.Name] = endpoint
 			}
 
 			// Same client reach with different port to the session affinity service, should have same destination pod,
-			ma.Logger.Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
-			ma.Logger.Info("Connection via port 80")
+			zap.L().Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
+			zap.L().Info("Connection via port 80")
 			reachabilityPort80 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
 				reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
 			}
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
 			}, false, true), t)
 
-			ma.Logger.Info("Connection via port 81")
+			zap.L().Info("Connection via port 81")
 			reachabilityPort81 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
 				reachabilityPort81.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
 			}
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 81, Protocol: v1.ProtocolUDP, Reachability: reachabilityPort81, ServiceType: entities.ClusterIP,
 			}, false, true), t)
 
@@ -160,13 +163,13 @@ func TestBasicService(t *testing.T) { // nolint
 			services = make(kubernetes.Services, len(pods))
 			var endlessServicePort int32 = 80
 			// Create a service with no endpoints
-			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			_, service, clusterIP, err := matrix.CreateServiceFromTemplate(manager.GetClientSet(), entities.ServiceTemplate{
 				Name:          "endless",
 				Namespace:     namespace,
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: v1.ProtocolTCP, Port: endlessServicePort}},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			for _, pod := range pods {
@@ -182,10 +185,10 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should not be reachable via endless service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Testing Endless service.")
+			zap.L().Info("Testing Endless service.")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace}, false)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false, false), t)
 			return ctx
@@ -196,13 +199,13 @@ func TestBasicService(t *testing.T) { // nolint
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// Create a clusterIP service
-			serviceName, service, _, err := matrix.CreateServiceFromTemplate(cs, entities.ServiceTemplate{
+			serviceName, service, _, err := matrix.CreateServiceFromTemplate(manager.GetClientSet(), entities.ServiceTemplate{
 				Name:          "hairpin",
 				Namespace:     namespace,
 				ProtocolPorts: []entities.ProtocolPortPair{{Protocol: pods[0].Containers[0].Protocol, Port: 80}},
 			})
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			pods[0].SetServiceName(serviceName)
@@ -215,10 +218,10 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should be reachable for hairpin", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Testing hairpin.")
+			zap.L().Info("Testing hairpin.")
 			reachability := matrix.NewReachability(model.AllPods(), true)
 			reachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: pods[0].Name}, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ClusterIP,
 			}, false, false), t)
 			return ctx
@@ -231,19 +234,19 @@ func TestBasicService(t *testing.T) { // nolint
 				clusterSvc := pod.NodePortService()
 
 				// Create a kubernetes service based in the service spec
-				var service kubernetes.ServiceBase = kubernetes.NewService(cs, clusterSvc)
+				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), clusterSvc)
 				if _, err := service.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Wait for final status
 				result, err := service.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 				nodePort, err := service.WaitForNodePort()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Set pod specification on entity model
@@ -257,15 +260,15 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should reachable on node port TCP and UDP", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Testing NodePort with TCP protocol.")
+			zap.L().Info("Testing NodePort with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
 			}, false, false), t)
 
-			ma.Logger.Info("Testing NodePort with UDP protocol.")
+			zap.L().Info("Testing NodePort with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
 			}, false, false), t)
 			return ctx
@@ -280,40 +283,40 @@ func TestBasicService(t *testing.T) { // nolint
 					ips []entities.ExternalIP
 				)
 				// Create a load balancers with TCP/UDP ports, based in the service spec
-				serviceTCP := kubernetes.NewService(cs, pod.LoadBalancerServiceByProtocol(v1.ProtocolTCP))
+				serviceTCP := kubernetes.NewService(manager.GetClientSet(), pod.LoadBalancerServiceByProtocol(v1.ProtocolTCP))
 				if _, err := serviceTCP.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
-				serviceUDP := kubernetes.NewService(cs, pod.LoadBalancerServiceByProtocol(v1.ProtocolUDP))
+				serviceUDP := kubernetes.NewService(manager.GetClientSet(), pod.LoadBalancerServiceByProtocol(v1.ProtocolUDP))
 				if _, err := serviceUDP.Create(); err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				// Wait for final status
 				result, err := serviceTCP.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 
 				result, err = serviceUDP.WaitForEndpoint()
 				if err != nil || !result {
-					t.Fatal(errors.New("no endpoint available"))
+					t.Error(errors.New("no endpoint available"))
 				}
 
 				ipsForTCP, err := serviceTCP.WaitForExternalIP()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 				ips = append(ips, entities.NewExternalIPs(ipsForTCP, v1.ProtocolTCP)...)
 
 				ipsForUDP, err := serviceUDP.WaitForExternalIP()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 				ips = append(ips, entities.NewExternalIPs(ipsForUDP, v1.ProtocolUDP)...)
 
 				if len(ips) == 0 {
-					t.Fatal(errors.New("invalid external UDP IPs setup"))
+					t.Error(errors.New("invalid external UDP IPs setup"))
 				}
 
 				// Set pod specification on entity model
@@ -329,15 +332,15 @@ func TestBasicService(t *testing.T) { // nolint
 			return ctx
 		}).
 		Assess("should be reachable via load balancer", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating load balancer with TCP protocol")
+			zap.L().Info("Creating load balancer with TCP protocol")
 			reachabilityTCP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.LoadBalancer,
 			}, false, false), t)
 
-			ma.Logger.Info("Creating Loadbalancer with UDP protocol")
+			zap.L().Info("Creating Loadbalancer with UDP protocol")
 			reachabilityUDP := matrix.NewReachability(pods, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.LoadBalancer,
 			}, false, false), t)
 			return ctx
@@ -361,19 +364,19 @@ func TestExternalService(t *testing.T) {
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// Create a kubernetes service based in the service spec
-			var service kubernetes.ServiceBase = kubernetes.NewService(cs, pods[0].NodePortLocalService())
+			var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), pods[0].NodePortLocalService())
 			if _, err := service.Create(); err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			// Wait for final status
 			result, err := service.WaitForEndpoint()
 			if err != nil || !result {
-				t.Fatal(errors.New("no endpoint available"))
+				t.Error(errors.New("no endpoint available"))
 			}
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 
 			// Set pod specification on entity model
@@ -388,18 +391,18 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Assess("should be reachable via NodePortLocal k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating ExternalTrafficPolicy=locali with ports in TCP and UDP")
-			ma.Logger.Info("Testing NodePortLocal with TCP protocol.")
+			zap.L().Info("Creating ExternalTrafficPolicy=locali with ports in TCP and UDP")
+			zap.L().Info("Testing NodePortLocal with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, false)
 			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
 			}, true, false), t)
 
-			ma.Logger.Info("Testing NodePortLocal with UDP protocol.")
+			zap.L().Info("Testing NodePortLocal with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, false)
 			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
 			}, true, false), t)
 			return ctx
@@ -410,10 +413,10 @@ func TestExternalService(t *testing.T) {
 			services = make(kubernetes.Services, len(pods))
 			for _, pod := range pods {
 				// Create a kubernetes service based in the service spec
-				var service kubernetes.ServiceBase = kubernetes.NewService(cs, pod.ExternalNameService(domain))
+				var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), pod.ExternalNameService(domain))
 				k8sSvc, err := service.Create()
 				if err != nil {
-					t.Fatal(err)
+					t.Error(err)
 				}
 
 				pod.SetServiceName(k8sSvc.Name)
@@ -426,9 +429,9 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Assess("should be reachable via ExternalName k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			ma.Logger.Info("Creating External service")
+			zap.L().Info("Creating External service")
 			reachability := matrix.NewReachability(model.AllPods(), true)
-			tools.MustNoWrong(matrix.ValidateOrFail(ma, model, &matrix.TestCase{
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
 			}, false, false), t)
 			return ctx

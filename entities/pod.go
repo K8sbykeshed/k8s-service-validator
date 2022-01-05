@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -192,7 +193,7 @@ func (pod PodString) Namespace() string {
 func (pod PodString) split() (string, string) { // nolint
 	pieces := strings.Split(string(pod), "/")
 	if len(pieces) != 2 {
-		fmt.Println(fmt.Printf("expected ns/pod, found %+v", pieces))
+		zap.L().Error(fmt.Sprintf("expected ns/pod, found %+v", pieces))
 	}
 	return pieces[0], pieces[1]
 }

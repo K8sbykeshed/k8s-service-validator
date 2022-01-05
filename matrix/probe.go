@@ -144,12 +144,12 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 		result := <-results
 		job := result.Job
 		if result.Err != nil {
-			k8s.Logger.Error("Unable to perform probe.",
+			zap.L().Error("Unable to perform probe.",
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
 			)
 			if result.Err != nil {
-				k8s.Logger.Warn("ERROR", zap.String("err", result.Err.Error()))
+				zap.L().Warn("ERROR", zap.String("err", result.Err.Error()))
 			}
 		}
 
@@ -159,26 +159,27 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			zap.String("cmd", result.Command),
 		}
 		if job.PodTo.SkipProbe {
-			k8s.Logger.Debug("Skipping probe", fields...)
+			zap.L().Debug("Skipping probe", fields...)
 		} else {
-			k8s.Logger.Debug("Validating matrix.", fields...)
+			zap.L().Debug("Validating matrix.", fields...)
 		}
 
 		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {
-			k8s.Logger.Error("Connection blocked!",
+			fields := []zap.Field{
+				zap.String("result", result.Command),
 				zap.String("from", string(job.PodFrom.PodString())),
 				zap.String("to", string(job.PodTo.PodString())),
-			)
+			}
 			if result.Err != nil {
-				k8s.Logger.Error("ERROR", zap.String("err", result.Err.Error()))
+				zap.L().Error("Command error", zap.String("err", result.Err.Error()))
 			}
 			if expected {
-				k8s.Logger.Warn("Expected allowed pod connection was instead BLOCKED", zap.String("result", result.Command))
+				zap.L().Debug("Expected allowed pod connection was instead BLOCKED", fields...)
 			} else {
-				k8s.Logger.Warn("Expected blocked pod connection was instead ALLOWED", zap.String("result", result.Command))
+				zap.L().Debug("Expected blocked pod connection was instead ALLOWED", fields...)
 			}
 		}
 	}

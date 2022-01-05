@@ -2,18 +2,17 @@ package tests
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
-	v1 "k8s.io/api/core/v1"
 
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	"go.uber.org/zap"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	v1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -22,58 +21,62 @@ import (
 const dnsDomain = "cluster.local"
 
 var (
+	// flags
+	debug     bool
 	namespace string
-	config    *rest.Config
-	testenv   env.Environment
-	model     *matrix.Model
-	cs        *kubernetes.Clientset
-	ma        *matrix.KubeManager
-	ctx       = context.Background()
-	logger    *zap.Logger
+
+	manager *matrix.KubeManager
+	testenv env.Environment
+
+	model *matrix.Model
 )
 
 func init() {
-	logger = NewLoggerConfig()
+	flag.BoolVar(&debug, "debug", false, "Enable debug log level.")
+	flag.StringVar(&namespace, "namespace", matrix.GetNamespace(), "Set namespace used to run the tests.")
 }
 
+// NewLoggerConfig return the configuration object for the logger
 func NewLoggerConfig(options ...zap.Option) *zap.Logger {
-	encoderCfg := zapcore.EncoderConfig{
-		MessageKey:     "msg",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		TimeKey:        "timer",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
+	logLevel := zap.InfoLevel
+	if debug {
+		logLevel = zap.DebugLevel
 	}
-	// todo(knabben) - flag to enable debugging level
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), os.Stdout, zap.DebugLevel)
+
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
+		MessageKey:  "msg",
+		LevelKey:    "level",
+		NameKey:     "logger",
+		TimeKey:     "timer",
+		EncodeLevel: zapcore.CapitalColorLevelEncoder,
+		EncodeTime:  zapcore.RFC3339TimeEncoder,
+	}), os.Stdout, logLevel)
 	return zap.New(core).WithOptions(options...)
 }
 
-// TestMain sets the general before/after function hooks
 func TestMain(m *testing.M) {
-	var (
-		err   error
-		nodes []*v1.Node
-	)
-
-	cs, config = matrix.NewClientSet()
 	cfg, err := envconf.NewFromFlags()
 	if err != nil {
 		log.Fatalf("envconf failed: %s", err)
 	}
 
-	testenv = env.NewWithConfig(cfg)
-	ma = matrix.NewKubeManager(cs, config, logger)
+	zap.ReplaceGlobals(NewLoggerConfig())
+
+	clientSet, config := matrix.NewClientSet()
+	manager = matrix.NewKubeManager(clientSet, config)
 	namespace = matrix.GetNamespace()
 
 	// Setup brings the pods only in the start, all tests share the same pods
 	// access them via different services types.
+	testenv = env.NewWithConfig(cfg)
 	testenv.Setup(
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			var pods []string
-			if nodes, err = ma.GetReadyNodes(); err != nil {
+			var (
+				nodes []*v1.Node
+				pods  []string
+			)
+
+			if nodes, err = manager.GetReadyNodes(); err != nil {
 				log.Fatal(err)
 			}
 
@@ -84,12 +87,12 @@ func TestMain(m *testing.M) {
 
 			// Initialize environment pods model and cluster.
 			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, dnsDomain)
-			if err = ma.StartPods(model, nodes); err != nil {
+			if err = manager.StartPods(model, nodes); err != nil {
 				log.Fatal(err)
 			}
 
 			// Wait until HTTP servers are up.
-			if err = ma.WaitForHTTPServers(model); err != nil {
+			if err = manager.WaitForHTTPServers(model); err != nil {
 				log.Fatal(err)
 			}
 			return ctx, nil
@@ -97,8 +100,8 @@ func TestMain(m *testing.M) {
 	).Finish(
 		// Finished cleans up the namespace in the end of the suite.
 		func(ctx context.Context, cfg *envconf.Config) (context.Context, error) {
-			logger.Info("Cleanup namespace.", zap.String("namespace", namespace))
-			if err := ma.DeleteNamespaces([]string{namespace}); err != nil {
+			zap.L().Info("Cleanup namespace.", zap.String("namespace", namespace))
+			if err := manager.DeleteNamespaces([]string{namespace}); err != nil {
 				log.Fatal(err)
 			}
 			return ctx, nil
