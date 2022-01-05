@@ -339,3 +339,14 @@ func CreateServiceFromTemplate(cs *kubernetes.Clientset, t entities.ServiceTempl
 	}
 	return s.Name, service, clusterIP, nil
 }
+
+func (k *KubeManager) InitializePod(pod *entities.Pod) error {
+	if _, err := k.CreatePod(pod.ToK8SSpec()); err != nil {
+		return err
+	}
+	if err := k.WaitAndSetIPs(pod); err != nil {
+		return err
+	}
+
+	return nil
+}
