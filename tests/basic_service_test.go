@@ -19,7 +19,7 @@ import (
 
 var (
 	ctx   = context.Background()
-	delay = 10 * time.Second
+	delay = 5 * time.Second
 )
 
 // TestBasicService starts up the basic Kubernetes services available
@@ -159,18 +159,23 @@ func TestBasicService(t *testing.T) { // nolint
 				fromToPeer[p.Name] = endpoint
 			}
 
-			// Same client reach with different port to the session affinity service, should have same destination pod,
-			zap.L().Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
+			// to validate if affiliation applies to same port
+			zap.L().Info(fmt.Sprintf("Testing connections to same ports, try multiple times to affirm the affiliation, should use same from/to peers: %v", fromToPeer))
 			zap.L().Debug(fmt.Sprintf("Session affinity peers: %v", fromToPeer))
-			zap.L().Info("Connection via port 80")
-			reachabilityPort80 := matrix.NewReachability(pods, false)
-			for from, to := range fromToPeer {
-				reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+			const connectTimes = 3
+			for i := 0; i < connectTimes; i++ {
+				zap.L().Info("Connection via port 80")
+				reachabilityPort80 := matrix.NewReachability(pods, false)
+				for from, to := range fromToPeer {
+					reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+				}
+				tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
+					ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
+				}, false, true), t)
 			}
-			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
-			}, false, true), t)
 
+			// to validate if affiliation applies to other ports
+			zap.L().Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
 			zap.L().Info("Connection via port 81")
 			reachabilityPort81 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
@@ -278,6 +283,9 @@ func TestBasicService(t *testing.T) { // nolint
 				if err != nil {
 					t.Error(err)
 				}
+
+				// required for wait complete ip rules creation
+				time.Sleep(delay)
 
 				// Set pod specification on entity model
 				pod.SetToPort(nodePort)
@@ -408,13 +416,13 @@ func TestExternalService(t *testing.T) {
 				t.Error(errors.New("no endpoint available"))
 			}
 
-			// required for wait complete rules creation
-			time.Sleep(delay)
-
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
 				t.Error(err)
 			}
+
+			// required for wait complete ip rules creation
+			time.Sleep(delay)
 
 			// Set pod specification on entity model
 			for _, pod := range pods {
