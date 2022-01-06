@@ -159,18 +159,22 @@ func TestBasicService(t *testing.T) { // nolint
 				fromToPeer[p.Name] = endpoint
 			}
 
-			// Same client reach with different port to the session affinity service, should have same destination pod,
-			zap.L().Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
+			// to validate if affiliation applies to same port
+			zap.L().Info(fmt.Sprintf("Testing connections to same ports, try multiple times to affirm the affiliation, should use same from/to peers: %v", fromToPeer))
 			zap.L().Debug(fmt.Sprintf("Session affinity peers: %v", fromToPeer))
-			zap.L().Info("Connection via port 80")
-			reachabilityPort80 := matrix.NewReachability(pods, false)
-			for from, to := range fromToPeer {
-				reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+			for i := 0; i < 3; i++ {
+				zap.L().Info("Connection via port 80")
+				reachabilityPort80 := matrix.NewReachability(pods, false)
+				for from, to := range fromToPeer {
+					reachabilityPort80.ExpectPeer(&matrix.Peer{Namespace: namespace, Pod: from}, &matrix.Peer{Namespace: namespace, Pod: to}, true)
+				}
+				tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
+					ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
+				}, false, true), t)
 			}
-			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityPort80, ServiceType: entities.ClusterIP,
-			}, false, true), t)
 
+			// to validate if affiliation applies to other ports
+			zap.L().Info(fmt.Sprintf("Testing connections to different ports of sesson affinity service, should use same from/to peers: %v", fromToPeer))
 			zap.L().Info("Connection via port 81")
 			reachabilityPort81 := matrix.NewReachability(pods, false)
 			for from, to := range fromToPeer {
