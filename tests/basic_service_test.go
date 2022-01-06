@@ -19,7 +19,7 @@ import (
 
 var (
 	ctx   = context.Background()
-	delay = 10 * time.Second
+	delay = 5 * time.Second
 )
 
 // TestBasicService starts up the basic Kubernetes services available
@@ -284,6 +284,9 @@ func TestBasicService(t *testing.T) { // nolint
 					t.Error(err)
 				}
 
+				// required for wait complete ip rules creation
+				time.Sleep(delay)
+
 				// Set pod specification on entity model
 				pod.SetToPort(nodePort)
 				services = append(services, service.(*kubernetes.Service))
@@ -413,13 +416,13 @@ func TestExternalService(t *testing.T) {
 				t.Error(errors.New("no endpoint available"))
 			}
 
-			// required for wait complete rules creation
-			time.Sleep(delay)
-
 			nodePort, err := service.WaitForNodePort()
 			if err != nil {
 				t.Error(err)
 			}
+
+			// required for wait complete ip rules creation
+			time.Sleep(delay)
 
 			// Set pod specification on entity model
 			for _, pod := range pods {
