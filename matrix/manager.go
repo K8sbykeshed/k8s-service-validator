@@ -3,7 +3,6 @@ package matrix
 import (
 	"context"
 	"fmt"
-	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"net"
 	"strconv"
 	"strings"
@@ -234,16 +233,16 @@ func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, ad
 	zap.L().Debug("commandDebugString " + commandDebugString)
 
 	maxRetries := 3
-	var stdout, stderr string
+	var stdout string
 	for i := 0; i < maxRetries; i++ {
-		stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+		stdout, _, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
 		if err == nil {
 			ep := strings.TrimSpace(stdout)
 			return true, ep, commandDebugString, nil
 		}
 	}
 	return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
-		" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+		" err - %v /// stdout - %s", nsFrom, podFrom, addrTo, err, stdout))
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
