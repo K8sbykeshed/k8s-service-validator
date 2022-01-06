@@ -12,7 +12,6 @@ require (
 )
 
 require (
-	github.com/avast/retry-go/v4 v4.0.2
 	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
 	golang.org/x/sys v0.0.0-20211209171907-798191bca915 // indirect
 	golang.org/x/text v0.3.7 // indirect
