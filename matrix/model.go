@@ -119,9 +119,8 @@ func (m *Model) AddPod(pod *entities.Pod, namespaceName string) {
 // RemovePod removes pod from the cluster model
 func (m *Model) RemovePod(podName, namespaceName string) error {
 	foundNamespace := false
-	for i, n := range m.Namespaces {
+	for _, n := range m.Namespaces {
 		if n.Name == namespaceName {
-			m.Namespaces = append(m.Namespaces[:i], m.Namespaces[i+1:]...)
 			foundNamespace = true
 		}
 	}

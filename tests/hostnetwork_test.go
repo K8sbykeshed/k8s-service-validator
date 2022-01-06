@@ -23,7 +23,17 @@ func TestHostNetwork(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			newPod, err = createHostNetworkPod("pod-5", nodes[0])
+			newPod = &entities.Pod{
+				Name:        "pod-5",
+				Namespace:   namespace,
+				HostNetwork: true,
+
+				Containers: []*entities.Container{
+					{Port: 80, Protocol: v1.ProtocolTCP},
+				},
+				NodeName: nodes[0].Name,
+			}
+			err = manager.InitializePod(newPod)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -33,12 +43,12 @@ func TestHostNetwork(t *testing.T) {
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			zap.L().Info("delete newly created pod, which use host network.")
-			if err := manager.DeletePod(newPod.Name, newPod.Namespace); err != nil {
-				t.Fatal(err)
-			}
 			err := model.RemovePod(newPod.Name, namespace)
 			if err != nil {
 				zap.L().Debug(err.Error())
+			}
+			if err := manager.DeletePod(newPod.Name, newPod.Namespace); err != nil {
+				t.Fatal(err)
 			}
 			return ctx
 		}).
@@ -56,26 +66,4 @@ func TestHostNetwork(t *testing.T) {
 		}).Feature()
 
 	testenv.Test(t, testHostNetwork)
-}
-
-func createHostNetworkPod(podName string, node *v1.Node) (*entities.Pod, error) {
-	pod := &entities.Pod{
-		Name:        podName,
-		Namespace:   namespace,
-		HostNetwork: true,
-
-		Containers: []*entities.Container{
-			{Port: 80, Protocol: v1.ProtocolTCP},
-		},
-		NodeName: node.Name,
-	}
-
-	if _, err := manager.CreatePod(pod.ToK8SSpec()); err != nil {
-		return nil, err
-	}
-	if err := manager.WaitAndSetIPs(pod); err != nil {
-		return nil, err
-	}
-
-	return pod, nil
 }

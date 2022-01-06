@@ -3,8 +3,9 @@ package tools
 import (
 	"testing"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
+
+	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 )
 
 func ResetTestBoard(t *testing.T, s kubernetes.Services, m *matrix.Model) {
