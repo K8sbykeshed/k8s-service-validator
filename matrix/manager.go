@@ -3,6 +3,7 @@ package matrix
 import (
 	"context"
 	"fmt"
+	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"net"
 	"strconv"
 	"strings"
@@ -204,11 +205,11 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	_, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+	zap.L().Error(
+		fmt.Sprintf("Can't connect: %s/%s -> %s", nsFrom, podFrom, addrTo),
+		zap.String("stderr", stderr), zap.Error(err),
+	)
 	if err != nil {
-		zap.L().Error(
-			fmt.Sprintf("Can't connect: %s/%s -> %s", nsFrom, podFrom, addrTo),
-			zap.String("stderr", stderr), zap.Error(err),
-		)
 		return false, commandDebugString, nil
 	}
 	return true, commandDebugString, nil
@@ -217,6 +218,7 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 // ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
 func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
 	var cmd []string
+	var err error
 	port := strconv.Itoa(toPort)
 
 	switch protocol {
@@ -231,13 +233,17 @@ func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, ad
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	zap.L().Debug("commandDebugString " + commandDebugString)
 
-	stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
-	if err != nil {
-		return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
-			" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
+	maxRetries := 3
+	var stdout, stderr string
+	for i := 0; i < maxRetries; i++ {
+		stdout, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+		if err == nil {
+			ep := strings.TrimSpace(stdout)
+			return true, ep, commandDebugString, nil
+		}
 	}
-	ep := strings.TrimSpace(stdout)
-	return true, ep, commandDebugString, nil
+	return false, "", commandDebugString, errors.Wrapf(err, fmt.Sprintf("%s/%s -> %s: error when running command:"+
+		" err - %v /// stdout - %s /// stderr - %s", nsFrom, podFrom, addrTo, err, stdout, stderr))
 }
 
 // executeRemoteCommand executes a remote shell command on the given pod.
