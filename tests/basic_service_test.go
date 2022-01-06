@@ -162,7 +162,8 @@ func TestBasicService(t *testing.T) { // nolint
 			// to validate if affiliation applies to same port
 			zap.L().Info(fmt.Sprintf("Testing connections to same ports, try multiple times to affirm the affiliation, should use same from/to peers: %v", fromToPeer))
 			zap.L().Debug(fmt.Sprintf("Session affinity peers: %v", fromToPeer))
-			for i := 0; i < 3; i++ {
+			const connectTimes = 3
+			for i := 0; i < connectTimes; i++ {
 				zap.L().Info("Connection via port 80")
 				reachabilityPort80 := matrix.NewReachability(pods, false)
 				for from, to := range fromToPeer {
