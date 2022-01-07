@@ -142,7 +142,7 @@ func TestBasicService(t *testing.T) { // nolint
 			tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
-		Assess("should always reach to same pod, even with via different protocol", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		Assess("should always reach to same target pods.", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			zap.L().Info("Testing ClusterIP session affinity to one pod.")
 
 			clusterIPWithSessionAffinity := podsWithAffinity[0].GetClusterIP()
@@ -439,7 +439,7 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).
 		Assess("should be reachable via NodePortLocal k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			zap.L().Info("Creating ExternalTrafficPolicy=locali with ports in TCP and UDP")
+			zap.L().Info("Creating ExternalTrafficPolicy=local with ports in TCP and UDP")
 			zap.L().Info("Testing NodePortLocal with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, false)
 			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)

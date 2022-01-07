@@ -12,7 +12,7 @@ test: ## Runs tests locally
 	go test -v ./tests
 
 summary: ## Summarize tests
-	gotestsum --format dots --hide-summary=skipped -- ./tests/...
+	gotestsum --format testname --hide-summary=skipped -- ./tests/...
 
 build: ## Build tests in a binary
 	go test -v -c -o svc-test ./tests

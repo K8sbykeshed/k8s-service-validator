@@ -204,7 +204,7 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 
 	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
 	_, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
-	zap.L().Error(
+	zap.L().Debug(
 		fmt.Sprintf("Can't connect: %s/%s -> %s", nsFrom, podFrom, addrTo),
 		zap.String("stderr", stderr), zap.Error(err),
 	)
