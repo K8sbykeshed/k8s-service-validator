@@ -1,4 +1,4 @@
-name: Cilium eBPF 1.11.0
+name: GH Antrea-Proxy 1.4
 on:
   push:
     branches:
@@ -17,19 +17,20 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.1.0
         with:
-          config: hack/kind-multi-worker-nocni-noproxy.yaml
+          config: hack/kind-multi-worker-nocni.yaml
           version: v0.11.0
           node_image: kindest/node:v1.22.0@sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047
+      - name: Setup Antrea proxy in kind cluster
+        run: |
+          git clone https://github.com/antrea-io/antrea.git
+          cd antrea
+          git checkout tags/v1.4.0
+          kind get clusters
+          kind get nodes --name=chart-testing | xargs ./hack/kind-fix-networking.sh
       - run: |
-          wget https://get.helm.sh/helm-v3.7.2-linux-amd64.tar.gz
-          tar zxvf helm-v3.7.2-linux-amd64.tar.gz
-          export PATH=${PATH}:${PWD}/linux-amd64
-          helm repo add cilium https://helm.cilium.io/
-          helm install cilium cilium/cilium --version 1.11.0 \
-            --namespace kube-system \
-            --set kubeProxyReplacement=strict \
-            --set k8sServiceHost=chart-testing-control-plane \
-            --set k8sServicePort=6443\
+          docker pull projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
+          kind load docker-image --name=chart-testing projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
+          kubectl apply -f https://github.com/antrea-io/antrea/releases/download/v1.4.0/antrea-kind.yml
       - run: |
           ./hack/install_metallb.sh
       - run: |
