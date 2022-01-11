@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
+	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -51,17 +52,18 @@ func NewReachability(pods []*entities.Pod, defaultExpectation bool) *Reachabilit
 func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison bool) {
 	right, wrong, ignored, comparison := r.Summary(false)
 	if ignored > 0 {
-		fmt.Println(fmt.Printf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
+		zap.L().Warn(fmt.Sprintf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
 	}
-	fmt.Println(fmt.Printf("reachability: correct:%v, incorrect:%v, result=%t\n\n", right, wrong, wrong == 0))
+	zap.L().Info(fmt.Sprintf("Reachability results (%t): correct: %v, incorrect: %v", wrong == 0, right, wrong))
+
 	if printExpected {
-		fmt.Println(fmt.Printf("expected:\n\n%s\n\n\n", r.Expected.PrettyPrint("")))
+		zap.L().Info(fmt.Sprintf("expected:\n\n%s\n\n\n", r.Expected.PrettyPrint("")))
 	}
 	if printObserved {
-		fmt.Println(fmt.Printf("observed:\n\n%s\n\n\n", r.Observed.PrettyPrint("")))
+		zap.L().Info(fmt.Sprintf("observed:\n\n%s\n\n\n", r.Observed.PrettyPrint("")))
 	}
 	if printComparison {
-		fmt.Println(fmt.Printf("comparison:\n\n%s\n\n\n", comparison.PrettyPrint("")))
+		zap.L().Info(fmt.Sprintf("comparison:\n\n%s\n\n\n", comparison.PrettyPrint("")))
 	}
 }
 

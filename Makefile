@@ -4,18 +4,40 @@ SHELL:=/usr/bin/env bash
 COLOR:=\\033[36m
 NOCOLOR:=\\033[0m
 
-.PHONY: test
+.PHONY: test build docker-build docker-push sonobuoy-run sonobuoy-retrieve
 
 ##@ Build
 
 test: ## Runs tests locally
 	go test -v ./tests
 
+summary: ## Summarize tests
+	gotestsum --format testname --hide-summary=skipped -- ./tests/...
+
 build: ## Build tests in a binary
 	go test -v -c -o svc-test ./tests
 
+docker-build: ## Build project into docker container image
+	docker build . -t yzaccc/k8s-service-validator:dev
+
+docker-push: ## Push the project docker image to dockerhub
+	docker push yzaccc/k8s-service-validator:dev
+
+sonobuoy-run: ## Run k8s-service-validator as sonobuoy plugin in a cluster
+	sonobuoy run --plugin sonobuoy-plugin.yaml --wait
+
+sonobuoy-retrieve: ## Retrieve results from sonobuoy plugin
+	rm -rf results
+	$(eval OUTFILE=$(shell sonobuoy retrieve))
+	echo $(OUTFILE)
+	mkdir results && tar -xf $(OUTFILE) -C results
+	cat results/plugins/k8s-service-validator-sonobuoy-plugin/*.yaml
+
+clean: ## Clean up sonobuoy results and output binary
+	rm -rf results *_sonobuoy_* svc-test
 
 ##@ Verify
+
 .PHONY: verify verify-golangci-lint verify-go-mod
 
 verify: verify-golangci-lint verify-go-mod ## Runs verification scripts to ensure correct execution

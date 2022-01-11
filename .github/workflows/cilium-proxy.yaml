@@ -1,4 +1,4 @@
-name: GH Cilium 1.11.0
+name: Cilium eBPF 1.11.0
 on:
   push:
     branches:
@@ -33,4 +33,5 @@ jobs:
       - run: |
           ./hack/install_metallb.sh
       - run: |
-         make summary
+          go install gotest.tools/gotestsum@latest
+          make summary

@@ -1,0 +1,11 @@
+sonobuoy-config:
+  driver: Job
+  plugin-name: k8s-service-validator-sonobuoy-plugin
+  result-format: raw
+spec:
+  image: yzaccc/k8s-service-validator:dev
+  name: plugin
+  resources: {}
+  volumeMounts:
+  - mountPath: /tmp/results
+    name: results

@@ -1,6 +1,6 @@
 # Demos
 
-- Initial sig-network demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8
+- The original demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8, which was presented to ~10+ people at sig-network.
 
 
 # K8S Service-API Table Tests
@@ -8,14 +8,19 @@
 [![GH Kube-Proxy - iptables - 1.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml)
 [![GH Kube-Proxy - IPTables - 1.22](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-122.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-122.yaml)
 [![GH Kube-Proxy - ipvs](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml)
+
 [![GH KPNG - nftables](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-nftables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-nftables.yaml)
 [![GH KPNG - ipvs](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kpng-ipvs.yaml)
-[![GH Cilium 1.11.0](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml)
+
+[![GH Cilium eBPF 1.11.0](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml)
+[![GH Calico eBPF 3.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/calico-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/calico-proxy.yaml)
 
 ## Problem
 
-The current upstream K8s sig-network tests are difficult to interpret in terms of failures, and
-schedule pods randomly to nodes, while fixing endpoints to the 1st node in a list.
+The upstream sig-network tests (curated by the kubernetes organization):
+- difficult to interpret in terms of failures
+- schedule pods randomly to nodes, while fixing endpoints to the 1st node in a list making them non-deterministic for failures
+- dont use positive and negative controls
 
 Although we cant deprecate these tests - b/c of their inertia, we need a better tool to diagnose
 Service / kube-proxy implementations across providers.  Examples of such providers are:
@@ -26,7 +31,7 @@ Service / kube-proxy implementations across providers.  Examples of such provide
 - Calico's proxying options (https://thenewstack.io/beyond-kube-proxy-tigera-calico-harnesses-ebpf-for-a-faster-data-plane/)
 - ... others ? feel free to PR / add here ! ...
 
-As these implementations of kube proxy diverge over time, knowing wether loadbalancing is failing due to the source
+The implementations of kube proxy diverge over time, knowing wether loadbalancing is failing due to the source
 or target of traffic, wether all node proxies or just a few are broken, and wether configurations like node-local
 endpoints, or terminating endpoint scenarios are causing specific issues, becomes increasingly important for comparing services.
 
@@ -58,6 +63,9 @@ following tests are available:
 - Loadbalancer
 - NodePort
 
+Covers features like: hairpin, session affinity, headless service, hostNetwork, 
+connections via TCP and UDP, NodePortLocal, services with annotations, etc...
+
 # Details/Contributing
 
 This is just an initial experimental repo but we'd like to fully implement this as a KEP and add test coverage to upstream K8s, 
@@ -85,6 +93,25 @@ To build the binary and run it, use:
 $ make build
 $ ./svc-test
 ```
+
+### Run with Sonobuoy
+```
+install sonobuoy: https://github.com/vmware-tanzu/sonobuoy#installation
+$ make sonobuoy-run
+after finished
+$ make sonobuoy-retrieve
+```
+
+### Running only specific tests
+
+The binary supports flags to run only UDP stale endpoints, examples:
+
+```
+go test -v ./tests/ -labels="type=udp_stale_endpoint"
+```
+
+Other flags include `-debug` for verbose output and `-namespace` for pick one to run tests on, when not specified 
+a new random namespace is created. 
 
 ### Using E2E tests
 
@@ -131,7 +158,10 @@ _output/bin/e2e.test -ginkgo.focus="\[sig-network\]" \
     --kubeconfig=.kube/config
 ```
 
-You must have a Kubernetes configuration at `$HOME/.kube/config`
+We use kubeconfig fetched from below, whichever works from the top of the list:
+1. env KUBECONFIG
+2. Kubernetes configuration at `$HOME/.kube/config`
+3. In cluster config.
 
 ### Running on a K8S cluster
 
@@ -188,7 +218,6 @@ x-12348/pod-4   .               .               .               .
 ## Sketch
 
 ![diagram](https://raw.githubusercontent.com/K8sbykeshed/svc-tests/main/.diagram.png)
-
 
 # Plan
 - Initial demo at sig-network (done), establishing agreement on future of service tests.

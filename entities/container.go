@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -61,7 +62,7 @@ func (c *Container) ToK8SSpec() v1.Container {
 		case v1.ProtocolUDP:
 			cmd = []string{"/agnhost", "serve-hostname", "--udp", "--http=false", "--port", fmt.Sprintf("%d", c.Port)}
 		default:
-			fmt.Println(fmt.Printf("invalid protocol %v", c.Protocol))
+			zap.L().Error(fmt.Sprintf("invalid protocol %v", c.Protocol))
 		}
 	}
 	if c.Image != "" {
