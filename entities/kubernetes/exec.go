@@ -20,7 +20,7 @@ import (
 
 const (
 	poll    = 10 * time.Second
-	timeout = 1 * time.Minute
+	timeout = 2 * time.Minute
 )
 
 var errPodCompleted = fmt.Errorf("pod ran to completion")

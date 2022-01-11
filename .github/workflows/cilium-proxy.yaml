@@ -17,7 +17,7 @@ jobs:
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.1.0
         with:
-          config: hack/kind-multi-worker-nocni.yaml
+          config: hack/kind-multi-worker-nocni-noproxy.yaml
           version: v0.11.0
           node_image: kindest/node:v1.22.0@sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047
       - run: |
