@@ -63,6 +63,9 @@ following tests are available:
 - Loadbalancer
 - NodePort
 
+Covers features like: hairpin, session affinity, headless service, hostNetwork, 
+connections via TCP and UDP, NodePortLocal, services with annotations, etc...
+
 # Details/Contributing
 
 This is just an initial experimental repo but we'd like to fully implement this as a KEP and add test coverage to upstream K8s, 
@@ -91,7 +94,7 @@ $ make build
 $ ./svc-test
 ```
 
-# Run with Sonobuoy
+### Run with Sonobuoy
 ```
 install sonobuoy: https://github.com/vmware-tanzu/sonobuoy#installation
 $ make sonobuoy-run
@@ -109,14 +112,6 @@ go test -v ./tests/ -labels="type=udp_stale_endpoint"
 
 Other flags include `-debug` for verbose output and `-namespace` for pick one to run tests on, when not specified 
 a new random namespace is created. 
-
-# Run with Sonobuoy
-```
-install sonobuoy: https://github.com/vmware-tanzu/sonobuoy#installation
-$ make sonobuoy-run
-after finished
-$ make sonobuoy-retrieve
-```
 
 ### Using E2E tests
 
