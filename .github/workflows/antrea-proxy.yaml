@@ -20,8 +20,17 @@ jobs:
           config: hack/kind-multi-worker-nocni.yaml
           version: v0.11.0
           node_image: kindest/node:v1.22.0@sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047
+      - name: Setup Antrea proxy in kind cluster
+        run: |
+          git clone https://github.com/antrea-io/antrea.git
+          cd antrea
+          git checkout tags/v1.4.0
+          kind get clusters
+          kind get nodes --name=chart-testing | xargs ./hack/kind-fix-networking.sh
       - run: |
-          kubectl apply -f https://raw.githubusercontent.com/antrea-io/antrea/main/build/yamls/antrea.yml
+          docker pull projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
+          kind load docker-image --name=chart-testing projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
+          kubectl apply -f https://github.com/antrea-io/antrea/releases/download/v1.4.0/antrea-kind.yml
       - run: |
           ./hack/install_metallb.sh
       - run: |
