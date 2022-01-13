@@ -34,4 +34,4 @@ jobs:
           ./hack/install_metallb.sh
       - run: |
           go install gotest.tools/gotestsum@latest
-          make summary
+          make summary OPTIONS="--skip-labels="type=node_port_traffic_local""

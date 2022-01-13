@@ -398,7 +398,7 @@ func TestExternalService(t *testing.T) {
 	// Create a node port traffic local service for pod-1 only
 	// and share the NodePort with all other pods, the test is using
 	// the same port via different nodes IPs (where each pod is scheduled)
-	featureNodeLocal := features.New("NodePort Traffic Local").WithLabel("type", "node_port_traffic_local").
+	featureNodePortLocal := features.New("NodePort Traffic Local").WithLabel("type", "node_port_traffic_local").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// Create a kubernetes service based in the service spec
@@ -484,5 +484,5 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureNodeLocal, featureExternal)
+	testenv.Test(t, featureNodePortLocal, featureExternal)
 }
