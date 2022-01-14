@@ -1,4 +1,4 @@
-name: kPNG nftables backend
+name: kPNG-nftables-backend
 on:
   push:
     branches:

@@ -1,4 +1,4 @@
-name: Calico eBPF 3.21 
+name: Calico-eBPF-3.21
 on:
   push:
     branches:

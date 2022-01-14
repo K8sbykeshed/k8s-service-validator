@@ -1,4 +1,4 @@
-name: Kube-Proxy IPTables 1.21 mode
+name: Kube-Proxy-IPTables-1.21-mode
 on:
   push:
     branches:
