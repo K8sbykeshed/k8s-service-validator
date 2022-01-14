@@ -1,4 +1,4 @@
-name: kPNG ipvs backend
+name: kPNG-ipvs-backend
 on:
   push:
     branches:
