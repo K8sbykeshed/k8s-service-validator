@@ -11,6 +11,9 @@ NOCOLOR:=\\033[0m
 test: ## Runs tests locally
 	go test -v ./tests
 
+unit-test: ## Runs unit test for the service-lb validator
+	go test -v ./entities
+
 summary: ## Summarize tests
 	gotestsum --format testname --hide-summary=skipped -- ./tests/...
 
