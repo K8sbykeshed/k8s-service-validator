@@ -39,6 +39,9 @@ sonobuoy-retrieve: ## Retrieve results from sonobuoy plugin
 clean: ## Clean up sonobuoy results and output binary
 	rm -rf results *_sonobuoy_* svc-test
 
+report:
+	go run ./cmd/report/main.go
+
 ##@ Verify
 
 .PHONY: verify verify-golangci-lint verify-go-mod

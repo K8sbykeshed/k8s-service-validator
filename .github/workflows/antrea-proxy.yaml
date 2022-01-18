@@ -1,4 +1,4 @@
-name: GH-Antrea-Proxy-1.4
+name: Antrea-Proxy-1.4
 on:
   push:
     branches:
