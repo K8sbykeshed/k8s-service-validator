@@ -80,6 +80,7 @@ func portFromContainer(containers []*Container, protocol v1.Protocol) []v1.Servi
 // ClusterIPService returns a kube service spec
 func (p *Pod) ClusterIPService() *v1.Service {
 	service := NewService(p)
+	service.Spec.Type = v1.ServiceTypeClusterIP
 	service.Spec.Ports = portFromContainer(p.Containers, Allprotocols)
 	return service
 }
