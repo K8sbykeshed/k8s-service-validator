@@ -14,6 +14,7 @@
 
 [![GH Cilium eBPF 1.11.0](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/cilium-proxy.yaml)
 [![GH Calico eBPF 3.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/calico-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/calico-proxy.yaml)
+[![GH Antrea eBPF 1.4](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/antrea-proxy.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/antrea-proxy.yaml)
 
 ## Problem
 
