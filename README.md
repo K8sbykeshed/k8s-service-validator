@@ -1,7 +1,7 @@
 # Demos
 
 - The original demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8, which was presented to ~10+ people at sig-network.
-- Bird view: [miro board](https://miro.com/app/board/uXjVOWjxxEc=/?invite_link_id=936514890798)
+- Bird view (yzaccc): [miro board](https://miro.com/app/board/uXjVOWjxxEc=/?invite_link_id=936514890798)
 
 [![Build Status](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/build.yml)
 [![Go](https://img.shields.io/badge/Go-1.17-blue.svg)](https://golang.google.cn)
