@@ -3,7 +3,7 @@ sonobuoy-config:
   plugin-name: k8s-service-validator-sonobuoy-plugin
   result-format: raw
 spec:
-  image: yzaccc/k8s-service-validator:dev
+  image: yzaccc/k8s-service-validator:v0.1.0
   name: plugin
   resources: {}
   volumeMounts:
