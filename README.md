@@ -2,7 +2,8 @@
 
 - The original demo (Amim) https://www.youtube.com/watch?v=bFaym0zmHf8, which was presented to ~10+ people at sig-network.
 
-
+[![Build Status](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/build.yml)
+[![Go](https://img.shields.io/badge/Go-1.17-blue.svg)](https://golang.google.cn)
 # K8S Service-API Table Tests
 
 [![GH Kube-Proxy - iptables - 1.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml)
