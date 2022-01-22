@@ -16,6 +16,8 @@ type ProbeJob struct {
 	ServiceType    string
 	// ReachTargetPod checks if connection is responded by the target pod, instead of only check successful connection
 	ReachTargetPod bool
+	// MeasureBandwidth defines a ProbeJob that measures the bandwidth from pod to pod with iperf
+	MeasureBandwidth bool
 }
 
 // SetServiceType sets the ServiceType for the probeJob
@@ -26,15 +28,6 @@ func (p *ProbeJob) SetServiceType(serviceType string) {
 // GetServiceType returns ServiceType for the probeJob
 func (p *ProbeJob) GetServiceType() string {
 	return p.ServiceType
-}
-
-// ProbeJobResults packages the model for the results of a pod->pod connectivity probe
-type ProbeJobResults struct {
-	Job         *ProbeJob
-	IsConnected bool
-	Err         error
-	Command     string
-	Endpoint    string
 }
 
 // probeWorker continues polling a pod connectivity status, until the incoming "jobs" channel is closed, and writes results back out to the "results" channel.
@@ -85,7 +78,12 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 		var command string
 		var err error
 		var ep string
-		if job.ReachTargetPod {
+		var bandwidth *ProbeJobBandwidthResults
+		if job.MeasureBandwidth {
+			connected, bandwidth, command, err = manager.ProbeConnectivityIPerf(
+				podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
+			)
+		} else if job.ReachTargetPod {
 			connected, ep, command, err = manager.ProbeConnectivityWithNc(
 				podFrom.Namespace, podFrom.Name, podFrom.Containers[0].GetName(), addrTo, job.Protocol, job.ToPort,
 			)
@@ -103,15 +101,19 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 			Err:         err,
 			Command:     command,
 			Endpoint:    ep,
+			Bandwidth:   bandwidth,
 		}
 		results <- result
 	}
 }
 
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
-func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase, reachTargetPod bool) {
+func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase, reachTargetPod, measureBandwidth bool) {
 	numberOfWorkers := 4 // See https://github.com/kubernetes/kubernetes/pull/97690
 	allPods := model.AllPods()
+	if measureBandwidth {
+		allPods = model.AllIPerfPods()
+	}
 	size := len(allPods) * len(allPods)
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
@@ -128,13 +130,14 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			}
 
 			jobs <- &ProbeJob{
-				PodFrom:        podFrom,
-				PodTo:          podTo,
-				ToPort:         toPort,
-				ToPodDNSDomain: model.dnsDomain,
-				Protocol:       testCase.Protocol,
-				ServiceType:    testCase.ServiceType,
-				ReachTargetPod: reachTargetPod,
+				PodFrom:          podFrom,
+				PodTo:            podTo,
+				ToPort:           toPort,
+				ToPodDNSDomain:   model.dnsDomain,
+				Protocol:         testCase.Protocol,
+				ServiceType:      testCase.ServiceType,
+				ReachTargetPod:   reachTargetPod,
+				MeasureBandwidth: measureBandwidth,
 			}
 		}
 	}
@@ -164,7 +167,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			zap.L().Debug("Validating matrix.", fields...)
 		}
 
-		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected)
+		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected, result.Bandwidth)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {

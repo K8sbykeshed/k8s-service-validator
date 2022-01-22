@@ -13,13 +13,18 @@ TAG?=dev
 ##@ Build
 
 test: ## Runs tests locally
-	go test -v ./tests
+	go test -v ./tests --skip-labels "type=iperf"
+
+test-perf: ## Runs full iperf test and generate bandwidth matrix on all the nodes
+	go test -v ./tests --labels "type=iperf"
 
 unit-test: ## Runs unit test for the service-lb validator
 	go test -v ./entities
+	go test -v ./commands
+	go test -v ./matrix
 
 summary: ## Summarize tests
-	gotestsum --format testname --hide-summary=skipped -- ./tests/...
+	gotestsum --format testname --hide-summary=skipped -- ./tests/... $(SUMMARY_OPTIONS)
 
 build: ## Build tests in a binary
 	go test -v -c -o svc-test ./tests

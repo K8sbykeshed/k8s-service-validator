@@ -62,4 +62,4 @@ jobs:
           ./hack/install_metallb.sh
       - run: |
           go install gotest.tools/gotestsum@latest
-          make summary
+          make summary SUMMARY_OPTIONS="--skip-labels="type=iperf""

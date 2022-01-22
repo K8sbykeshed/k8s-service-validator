@@ -49,7 +49,7 @@ func NewReachability(pods []*entities.Pod, defaultExpectation bool) *Reachabilit
 }
 
 // PrintSummary prints the summary
-func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison bool) {
+func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison, printBandwidth bool) {
 	right, wrong, ignored, comparison := r.Summary(false)
 	if ignored > 0 {
 		zap.L().Warn(fmt.Sprintf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
@@ -61,6 +61,9 @@ func (r *Reachability) PrintSummary(printExpected, printObserved, printCompariso
 	}
 	if printObserved {
 		zap.L().Info(fmt.Sprintf("observed:\n\n%s\n\n\n", r.Observed.PrettyPrint("")))
+	}
+	if printBandwidth {
+		zap.L().Info(fmt.Sprintf("observed bandwidth:\n\n%s\n\n\n", r.Observed.PrettyPrintBandwidth("")))
 	}
 	if printComparison {
 		zap.L().Info(fmt.Sprintf("comparison:\n\n%s\n\n\n", comparison.PrettyPrint("")))
@@ -117,6 +120,7 @@ func (r *Reachability) ExpectPeer(from, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod, toPod entities.PodString, isConnected bool) {
+func (r *Reachability) Observe(fromPod, toPod entities.PodString, isConnected bool, bandwidth *ProbeJobBandwidthResults) {
 	r.Observed.Set(string(fromPod), string(toPod), isConnected)
+	r.Observed.SetBandwidth(string(fromPod), string(toPod), bandwidth)
 }

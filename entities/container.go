@@ -7,11 +7,23 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	v1 "k8s.io/api/core/v1"
 )
 
-// AgnhostImage is the image reference
-const AgnhostImage = "k8s.gcr.io/e2e-test-images/agnhost:2.31"
+type (
+	ContainerImage   string
+	ContainerCommand string
+)
+
+const (
+	// NotSpecifiedImage is used when user does not provide an image
+	NotSpecifiedImage ContainerImage = ""
+
+	// AgnhostImage is the image reference for agnhost server
+	AgnhostImage ContainerImage = "k8s.gcr.io/e2e-test-images/agnhost:2.31"
+)
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -20,7 +32,7 @@ func init() {
 // Container represents the container model
 type Container struct {
 	Name     string
-	Image    string
+	Image    ContainerImage
 	Command  []string
 	Protocol v1.Protocol
 	Port     int32
@@ -55,24 +67,26 @@ func (c *Container) ToK8SSpec() v1.Container {
 		name  = c.GetName()
 		image = AgnhostImage
 	)
-	if len(cmd) == 0 {
-		switch c.Protocol {
-		case v1.ProtocolTCP:
-			cmd = []string{"/agnhost", "serve-hostname", "--tcp", "--http=false", "--port", fmt.Sprintf("%d", c.Port)}
-		case v1.ProtocolUDP:
-			cmd = []string{"/agnhost", "serve-hostname", "--udp", "--http=false", "--port", fmt.Sprintf("%d", c.Port)}
-		default:
-			zap.L().Error(fmt.Sprintf("invalid protocol %v", c.Protocol))
-		}
-	}
-	if c.Image != "" {
+
+	// use user image instead of agnhost if specified
+	if c.Image != NotSpecifiedImage {
 		image = c.Image
 	}
+	if len(cmd) == 0 {
+		switch image {
+		case AgnhostImage:
+			agnHost := commands.NewAgnHostServer(int(c.Port), c.Protocol)
+			cmd = agnHost.ServeCommand()
+		default:
+			zap.L().Error(fmt.Sprintf("self-provided image %s should have non-empty command", image))
+		}
+	}
+
 	// it must have a container/port tuple per container
 	container := v1.Container{
 		Name:            name,
 		ImagePullPolicy: v1.PullIfNotPresent,
-		Image:           image,
+		Image:           string(image),
 		Command:         cmd,
 	}
 	if c.Port > 0 {
