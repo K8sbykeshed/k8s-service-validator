@@ -55,10 +55,8 @@ var _ = Describe("container unit test", func() {
 	})
 
 	Context("to k8s spec", func() {
-		BeforeEach(func() {
+		It("should render correct k8s spec with agnhost when image is not specified", func() {
 			container = &Container{Port: 8080, Protocol: v1.ProtocolTCP}
-		})
-		It("should render correct k8s spec", func() {
 			k8sContainer := container.ToK8SSpec()
 			Expect(k8sContainer.Name).To(Equal("cont-8080-tcp"))
 			Expect(k8sContainer.ImagePullPolicy).To(Equal(v1.PullIfNotPresent))

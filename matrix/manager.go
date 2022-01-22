@@ -3,8 +3,6 @@ package matrix
 import (
 	"context"
 	"fmt"
-	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	ek "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 )
@@ -47,30 +46,37 @@ func (k *KubeManager) GetClientSet() *kubernetes.Clientset {
 	return k.clientSet
 }
 
+// StartPodsInNamespace start all pods in the specified namespace and wait them to be up
+func (k *KubeManager) StartPodsInNamespace(_ *Model, nodes []*v1.Node, namespace *entities.Namespace) error {
+	zap.L().Info("Creating test pods in the namespace", zap.String("namespace", namespace.Name))
+	if _, err := k.CreateNamespace(namespace.Spec()); err != nil {
+		return err
+	}
+	for i, pod := range namespace.Pods {
+		// Set NodeName on pods being created
+		pod.NodeName = nodes[i].Name
+		zap.L().Debug("creating/updating pod.",
+			zap.String("namespace", namespace.Name),
+			zap.String("name", pod.Name),
+			zap.String("node", pod.NodeName),
+		)
+		if _, err := k.CreatePod(pod.ToK8SSpec()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // StartPods start all pods and wait them to be up
 func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 	zap.L().Info("Creating test pods in the cluster.")
 	for _, ns := range model.Namespaces { // create namespaces
-		if _, err := k.CreateNamespace(ns.Spec()); err != nil {
-			return err
-		}
-
 		// Check size of nodes and already modeled pods
 		if len(ns.Pods) != len(nodes) || len(nodes) <= 1 {
 			return errors.Errorf("invalid number of %d nodes.", len(nodes))
 		}
-
-		for i, pod := range ns.Pods {
-			// Set NodeName on pods being created
-			pod.NodeName = nodes[i].Name
-			zap.L().Debug("creating/updating pod.",
-				zap.String("namespace", ns.Name),
-				zap.String("name", pod.Name),
-				zap.String("node", pod.NodeName),
-			)
-			if _, err := k.CreatePod(pod.ToK8SSpec()); err != nil {
-				return err
-			}
+		if err := k.StartPodsInNamespace(model, nodes, ns); err != nil {
+			return err
 		}
 	}
 	// waiting for pods running.
@@ -196,22 +202,29 @@ func (k *KubeManager) GetPod(ns, name string) (*v1.Pod, error) {
 	return kubePod, nil
 }
 
-// probeConnectivity execs into a pod and checks its connectivity to another pod..
-func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
-	var cmd []string
-	port := strconv.Itoa(toPort)
-
-	switch protocol {
-	case v1.ProtocolTCP:
-		cmd = []string{"/agnhost", "connect", net.JoinHostPort(addrTo, port), "--timeout=5s", "--protocol=tcp"}
-	case v1.ProtocolUDP:
-		cmd = []string{"/agnhost", "connect", net.JoinHostPort(addrTo, port), "--timeout=5s", "--protocol=udp"}
-	default:
-		zap.L().Error(fmt.Sprintf("protocol %s not supported", protocol))
+// ProbeConnectivityIPerf execs into a pod, checks its connectivity and measures bandwidth to another pod.
+func (k *KubeManager) ProbeConnectivityIPerf(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, *ProbeJobBandwidthResults, string, error) { // nolint
+	iperf := commands.NewIPerfClient(nsFrom, podFrom, containerFrom, addrTo, toPort, protocol)
+	commandDebugString := iperf.DebugString()
+	zap.L().Debug("commandDebugString " + commandDebugString)
+	stdout, stderr, err := iperf.Execute(k.config, k.clientSet)
+	if err != nil {
+		zap.L().Debug("Stderr from iperf client: ", zap.String("stderr", stderr))
+		zap.L().Debug("Stdout from iperf client: ", zap.String("stdout", stdout))
+		return false, nil, commandDebugString, nil
 	}
+	bandwidthResult := &ProbeJobBandwidthResults{}
+	if err := bandwidthResult.FromCommaSeparatedString(stdout); err != nil {
+		return false, nil, commandDebugString, err
+	}
+	return true, bandwidthResult, commandDebugString, nil
+}
 
-	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
-	_, stderr, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+// ProbeConnectivity execs into a pod and checks its connectivity to another pod.
+func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, error) { // nolint
+	agnHost := commands.NewAgnHostClient(nsFrom, podFrom, containerFrom, addrTo, toPort, protocol)
+	commandDebugString := agnHost.DebugString()
+	_, stderr, err := agnHost.Execute(k.config, k.clientSet)
 	zap.L().Debug(
 		fmt.Sprintf("Can't connect: %s/%s -> %s", nsFrom, podFrom, addrTo),
 		zap.String("stderr", stderr), zap.Error(err),
@@ -222,28 +235,18 @@ func (k *KubeManager) ProbeConnectivity(nsFrom, podFrom, containerFrom, addrTo s
 	return true, commandDebugString, nil
 }
 
-// ProbeConnectivityWithCurl execs into a pod and connect the endpoint, return endpoint
+// ProbeConnectivityWithNc execs into a pod and connect the endpoint, return endpoint
 func (k *KubeManager) ProbeConnectivityWithNc(nsFrom, podFrom, containerFrom, addrTo string, protocol v1.Protocol, toPort int) (bool, string, string, error) { // nolint
-	var cmd []string
-	var err error
-	port := strconv.Itoa(toPort)
-
-	switch protocol {
-	case v1.ProtocolTCP:
-		cmd = []string{"nc", "-w10", addrTo, port}
-	case v1.ProtocolUDP:
-		cmd = []string{"nc", "-u", "-w10", addrTo, port}
-	default:
-		zap.L().Error(fmt.Sprintf("protocol %s not supported", protocol))
-	}
-
-	commandDebugString := fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", podFrom, containerFrom, nsFrom, strings.Join(cmd, " "))
+	nc := commands.NewNcClient(nsFrom, podFrom, containerFrom, addrTo, toPort, protocol)
+	commandDebugString := nc.DebugString()
 	zap.L().Debug("commandDebugString " + commandDebugString)
 
 	maxRetries := 3
 	var stdout string
+	var err error
+
 	for i := 0; i < maxRetries; i++ {
-		stdout, _, err := k.executeRemoteCommand(nsFrom, podFrom, containerFrom, cmd)
+		stdout, _, err := nc.Execute(k.config, k.clientSet)
 		if err == nil {
 			ep := strings.TrimSpace(stdout)
 			return true, ep, commandDebugString, nil
@@ -295,7 +298,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			}
 			reachability := NewReachability(model.AllPods(), true)
 			testCase.Reachability = reachability
-			ProbePodToPodConnectivity(k, model, testCase, false)
+			ProbePodToPodConnectivity(k, model, testCase, false, false)
 			_, wrong, _, _ := reachability.Summary(false)
 			if wrong == 0 {
 				zap.L().Debug("Server is ready", zap.String("case", caseName))

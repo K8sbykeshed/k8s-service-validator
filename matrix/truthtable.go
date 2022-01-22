@@ -7,10 +7,11 @@ import (
 
 // TruthTable takes in n items and maintains an n x n table of booleans for each ordered pair
 type TruthTable struct {
-	Froms  []string
-	Tos    []string
-	toSet  map[string]bool
-	Values map[string]map[string]bool
+	Froms      []string
+	Tos        []string
+	toSet      map[string]bool
+	Values     map[string]map[string]bool
+	Bandwidths map[string]map[string]*ProbeJobBandwidthResults
 }
 
 // NewTruthTableFromItems creates a new truth table with items
@@ -21,8 +22,10 @@ func NewTruthTableFromItems(items []string, defaultValue *bool) *TruthTable {
 // NewTruthTable creates a new truth table with froms and tos
 func NewTruthTable(froms, tos []string, defaultValue *bool) *TruthTable {
 	values := map[string]map[string]bool{}
+	bandwidths := map[string]map[string]*ProbeJobBandwidthResults{}
 	for _, from := range froms {
 		values[from] = map[string]bool{}
+		bandwidths[from] = map[string]*ProbeJobBandwidthResults{}
 		for _, to := range tos {
 			if defaultValue != nil {
 				values[from][to] = *defaultValue
@@ -34,10 +37,11 @@ func NewTruthTable(froms, tos []string, defaultValue *bool) *TruthTable {
 		toSet[to] = true
 	}
 	return &TruthTable{
-		Froms:  froms,
-		Tos:    tos,
-		toSet:  toSet,
-		Values: values,
+		Froms:      froms,
+		Tos:        tos,
+		toSet:      toSet,
+		Values:     values,
+		Bandwidths: bandwidths,
 	}
 }
 
@@ -98,6 +102,18 @@ func (tt *TruthTable) Set(from, to string, value bool) {
 	dict[to] = value
 }
 
+// SetBandwidth sets the bandwidth for from->to
+func (tt *TruthTable) SetBandwidth(from, to string, bandwidth *ProbeJobBandwidthResults) {
+	dict, ok := tt.Bandwidths[from]
+	if !ok {
+		fmt.Println(fmt.Printf("from-key %s not found", from))
+	}
+	if _, ok := tt.toSet[to]; !ok {
+		fmt.Println(fmt.Printf("to-key %s not allowed", to))
+	}
+	dict[to] = bandwidth
+}
+
 // Get gets the specified value
 func (tt *TruthTable) Get(from, to string) bool {
 	dict, ok := tt.Values[from]
@@ -109,6 +125,19 @@ func (tt *TruthTable) Get(from, to string) bool {
 		fmt.Println(fmt.Printf("to-key %s not found in map (%+v)", to, dict))
 	}
 	return val
+}
+
+// GetBandwidth gets the specified bandwidth for from->to
+func (tt *TruthTable) GetBandwidth(from, to string) *ProbeJobBandwidthResults {
+	dict, ok := tt.Bandwidths[from]
+	if !ok {
+		fmt.Println(fmt.Printf("from-key %s not found", from))
+	}
+	bandwidth, ok := dict[to]
+	if !ok {
+		fmt.Println(fmt.Printf("to-key %s not found in map (%+v)", to, dict))
+	}
+	return bandwidth
 }
 
 // PrettyPrint produces a nice visual representation.
@@ -124,6 +153,27 @@ func (tt *TruthTable) PrettyPrint(indent string) string {
 				mark = "?"
 			} else if val {
 				mark = "."
+			}
+			line = append(line, mark+"\t")
+		}
+		lines = append(lines, indent+strings.Join(line, "\t"))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// PrettyPrintBandwidth produces a nice visual representation for measured bandwidths.
+func (tt *TruthTable) PrettyPrintBandwidth(indent string) string {
+	header := indent + strings.Join(append([]string{"-\t"}, tt.Tos...), "\t")
+	lines := []string{header}
+	for _, from := range tt.Froms {
+		line := []string{from}
+		for _, to := range tt.Tos {
+			bandwidth := tt.Bandwidths[from][to]
+			var mark string
+			if bandwidth == nil {
+				mark = "X"
+			} else {
+				mark = tt.Bandwidths[from][to].PrettyString(true)
 			}
 			line = append(line, mark+"\t")
 		}

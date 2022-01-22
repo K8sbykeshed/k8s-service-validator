@@ -8,6 +8,7 @@
 # K8S Service-API Table Tests
 
 [![GH Kube-Proxy - iptables - 1.21](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables.yaml)
+[![GH Kube-Proxy - IPTables - 1.21 - Performance Test](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-perf.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-perf.yaml)
 [![GH Kube-Proxy - IPTables - 1.22](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-122.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-iptables-122.yaml)
 [![GH Kube-Proxy - ipvs](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml/badge.svg)](https://github.com/K8sbykeshed/k8s-service-validator/actions/workflows/kube-proxy-ipvs.yaml)
 

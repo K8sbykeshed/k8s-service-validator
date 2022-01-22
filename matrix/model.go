@@ -2,6 +2,7 @@ package matrix
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	v1 "k8s.io/api/core/v1"
@@ -18,32 +19,43 @@ type Model struct {
 }
 
 // NewModel construct a Model struct used on probing and reachability comparison
-func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.Protocol, dnsDomain string) *Model {
+func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.Protocol,
+	dnsDomain string) *Model {
 	// build the entire "model" for the overall test, which means, building
 	// namespaces, pods, containers for each protocol`.
-
 	namespaces := make([]*entities.Namespace, len(namespaceNames))
 	for i := range namespaces {
 		ns := namespaceNames[i]
-		var pods []*entities.Pod
-		for _, podName := range podNames {
-			var containers []*entities.Container
-			for _, port := range ports {
-				for _, protocol := range protocols {
-					containers = append(containers, &entities.Container{
-						Port:     port,
-						Protocol: protocol,
-					})
-				}
-			}
-			pods = append(pods, &entities.Pod{Namespace: ns, Name: podName, Containers: containers})
-		}
-		namespaces[i] = &entities.Namespace{Name: ns, Pods: pods}
+		namespaces[i] = entities.NewNamespaceWithPods(ns, podNames, ports, protocols)
 	}
 	return &Model{
 		Namespaces: namespaces,
 		dnsDomain:  dnsDomain,
 	}
+}
+
+// AddNamespaceWithImageAndCommands creates a new namespace in the model with pods
+// while explicitly specifying the container image and commands to use
+func (m *Model) AddNamespaceWithImageAndCommands(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol,
+	image entities.ContainerImage, commands []string) *entities.Namespace {
+	namespace := entities.NewNamespaceWithPodsGivenImageAndCommand(namespaceName, podNames, ports, protocols, image, commands)
+	m.Namespaces = append(m.Namespaces, namespace)
+	return namespace
+}
+
+// AddNamespace creates a new namespace in the model with pods
+func (m *Model) AddNamespace(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol) *entities.Namespace {
+	namespace := entities.NewNamespaceWithPods(namespaceName, podNames, ports, protocols)
+	m.Namespaces = append(m.Namespaces, namespace)
+	return namespace
+}
+
+// AddIPerfNamespace creates a new namespace in the model with pods
+// but provides the iperf serve command
+func (m *Model) AddIPerfNamespace(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol) *entities.Namespace {
+	iperfNamespace := entities.NewNamespaceWithIPerfPods(namespaceName, podNames, ports, protocols)
+	m.Namespaces = append(m.Namespaces, iperfNamespace)
+	return iperfNamespace
 }
 
 func extractPortProtocols(namespaces []*entities.Namespace) ([]int32, []v1.Protocol) {
@@ -87,6 +99,18 @@ func (m *Model) AllPods() []*entities.Pod {
 		m.pods = &pods
 	}
 	return *m.pods
+}
+
+// AllIPerfPods returns a slice of all pods in the iperf namespace
+func (m *Model) AllIPerfPods() []*entities.Pod {
+	var iperfPods []*entities.Pod
+	m.AllPods()
+	for _, ns := range m.Namespaces {
+		if strings.HasSuffix(ns.Name, entities.IPerfNamespaceSuffix) {
+			iperfPods = append(iperfPods, ns.Pods...)
+		}
+	}
+	return iperfPods
 }
 
 func (m *Model) ResetAllPods() {
