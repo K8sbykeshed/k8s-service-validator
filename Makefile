@@ -8,7 +8,7 @@ NOCOLOR:=\\033[0m
 
 REGISTRY?=yzaccc
 IMAGE?=k8s-service-validator
-TAG?=dev
+TAG?=v0.1.1
 
 ##@ Build
 
