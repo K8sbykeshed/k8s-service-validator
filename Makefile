@@ -31,6 +31,7 @@ docker-push: ## Push the project docker image to dockerhub
 	docker push ${REGISTRY}/${IMAGE}:${TAG}
 
 sonobuoy-run: ## Run k8s-service-validator as sonobuoy plugin in a cluster
+	sonobuoy delete
 	sonobuoy run --plugin sonobuoy-plugin.yaml --wait
 
 sonobuoy-retrieve: ## Retrieve results from sonobuoy plugin
