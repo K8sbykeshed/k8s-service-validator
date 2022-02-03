@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/k8sbykeshed/k8s-service-validator/consts"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/pkg/errors"
@@ -30,11 +32,14 @@ const (
 type KubeManager struct {
 	config    *rest.Config
 	clientSet *kubernetes.Clientset
+
+	// Pods keep in pending state and cannot get scheduled
+	PendingPods map[string]int
 }
 
 // NewKubeManager returns a new KubeManager
 func NewKubeManager(cs *kubernetes.Clientset, config *rest.Config) *KubeManager {
-	return &KubeManager{clientSet: cs, config: config}
+	return &KubeManager{clientSet: cs, config: config, PendingPods: map[string]int{}}
 }
 
 // GetClientSet returns the Kubernetes clientset
@@ -84,16 +89,19 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 	kubePod := modelPod.ToK8SSpec()
 	zap.L().Debug("Wait for pod running.", zap.String("name", modelPod.Name), zap.String("namespace", modelPod.Namespace))
 
-	if err := ek.WaitForPodRunningInNamespace(k.clientSet, kubePod); err != nil {
+	if err := ek.WaitForPodRunningInNamespace(k.clientSet, kubePod, k.PendingPods); err != nil {
 		return errors.Wrapf(err, "unable to wait for pod %s/%s", modelPod.Namespace, modelPod.Name)
 	}
-	if kubePod, err = k.GetPod(modelPod.Namespace, modelPod.Name); err != nil {
-		return err
+
+	if k.PendingPods[modelPod.Name] < consts.PollTimesToDeterminePendingPod {
+		// Set IP addresses on Pod model.
+		if kubePod, err = k.GetPod(modelPod.Namespace, modelPod.Name); err != nil {
+			return err
+		}
+		modelPod.SetPodIP(kubePod.Status.PodIP)
+		modelPod.SetHostIP(kubePod.Status.HostIP)
 	}
 
-	// Set IP addresses on Pod model.
-	modelPod.SetPodIP(kubePod.Status.PodIP)
-	modelPod.SetHostIP(kubePod.Status.HostIP)
 	return nil
 }
 

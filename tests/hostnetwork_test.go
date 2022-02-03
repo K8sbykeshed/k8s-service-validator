@@ -18,11 +18,6 @@ func TestHostNetwork(t *testing.T) {
 	// 2. verify successful connection between pod-5 and all pods in the cluster
 	testHostNetwork := features.New("HostNetwork").WithLabel("type", "hostNetwork").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			nodes, err := manager.GetReadyNodes()
-			if err != nil {
-				t.Fatal(err)
-			}
-
 			newPod = &entities.Pod{
 				Name:        "pod-5",
 				Namespace:   namespace,
@@ -31,9 +26,8 @@ func TestHostNetwork(t *testing.T) {
 				Containers: []*entities.Container{
 					{Port: 80, Protocol: v1.ProtocolTCP},
 				},
-				NodeName: nodes[0].Name,
 			}
-			err = manager.InitializePod(newPod)
+			err := manager.InitializePod(newPod)
 			if err != nil {
 				t.Fatal(err)
 			}

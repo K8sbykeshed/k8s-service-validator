@@ -157,11 +157,13 @@ func (p *Pod) LabelSelector() map[string]string {
 func (p *Pod) ToK8SSpec() *v1.Pod {
 	zero := int64(0)
 	podSpec := v1.PodSpec{
-		NodeSelector:                  map[string]string{"kubernetes.io/hostname": p.NodeName},
 		Containers:                    ContainersToK8SSpec(p.Containers),
 		TerminationGracePeriodSeconds: &zero,
 		HostNetwork:                   p.HostNetwork,
-		Tolerations:                   defaultTolerationsForWindowsNodes(),
+		Tolerations:                   DefaultTolerationsForWindowsNodes(),
+	}
+	if p.NodeName != "" {
+		podSpec.NodeSelector = map[string]string{"kubernetes.io/hostname": p.NodeName}
 	}
 	if p.InitContainers != nil {
 		podSpec.InitContainers = ContainersToK8SSpec(p.InitContainers)
@@ -178,7 +180,7 @@ func (p *Pod) ToK8SSpec() *v1.Pod {
 }
 
 // defaultTolerationsForWindowsNodes returns the toleration setting for each pod, requested specific for windows
-func defaultTolerationsForWindowsNodes() []v1.Toleration {
+func DefaultTolerationsForWindowsNodes() []v1.Toleration {
 	return []v1.Toleration{{Key: "os", Value: "windows", Effect: "NoSchedule"}}
 }
 
