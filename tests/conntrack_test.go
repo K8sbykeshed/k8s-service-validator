@@ -22,7 +22,7 @@ var (
 )
 
 // podUDPStaleServer returns server pod spec
-func podUDPStaleServer(podName string, node *v1.Node) (*entities.Pod, error) {
+func podUDPStaleServer(podName, nodeName string) (*entities.Pod, error) {
 	pod := &entities.Pod{
 		Name:      podName,
 		Namespace: udpNamespaceName,
@@ -32,7 +32,7 @@ func podUDPStaleServer(podName string, node *v1.Node) (*entities.Pod, error) {
 		Containers: []*entities.Container{
 			{Port: udpPort, Protocol: v1.ProtocolUDP},
 		},
-		NodeName: node.Name,
+		NodeName: nodeName,
 	}
 
 	if _, err := manager.CreatePod(pod.ToK8SSpec()); err != nil {
@@ -46,12 +46,12 @@ func podUDPStaleServer(podName string, node *v1.Node) (*entities.Pod, error) {
 }
 
 // podUDPStaleClient returns client pod spec
-func podUDPStaleClient(podName, clusterIP string, node *v1.Node) (*entities.Pod, error) {
+func podUDPStaleClient(podName, clusterIP, nodeName string) (*entities.Pod, error) {
 	cmd := fmt.Sprintf(`date; for i in $(seq 1 3000); do echo "$(date) Try: ${i}"; echo hostname | nc -u -w2 %s %d; echo; done`, clusterIP, udpPort)
 	pod := &entities.Pod{
 		SkipProbe: true,
 		Name:      podName,
-		NodeName:  node.Name,
+		NodeName:  nodeName,
 		Namespace: udpNamespaceName,
 		Containers: []*entities.Container{
 			{Protocol: v1.ProtocolUDP, Port: 80},
@@ -80,12 +80,12 @@ func TestUDPInitContainer(t *testing.T) {
 		services kubernetes.Services
 	)
 
+	pods := model.AllPods()
 	featureUDPInitContainer := features.New("UDP stale endpoint").WithLabel("type", "udp_stale_endpoint").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			var (
 				err                 error
 				result              bool
-				scheduledNodes      []*v1.Node
 				firstPod, secondPod *entities.Pod
 			)
 
@@ -95,12 +95,9 @@ func TestUDPInitContainer(t *testing.T) {
 			if _, err := manager.CreateNamespace(udpNamespace.Spec()); err != nil {
 				t.Fatal(err)
 			}
-			if scheduledNodes, err = manager.GetReadyNodes(); err != nil {
-				t.Fatal(err)
-			}
 
 			// create stale server pod
-			if firstPod, err = podUDPStaleServer("pod-1", scheduledNodes[0]); err != nil {
+			if firstPod, err = podUDPStaleServer(pods[0].Name, pods[0].NodeName); err != nil {
 				t.Fatal(err)
 			}
 
@@ -125,7 +122,7 @@ func TestUDPInitContainer(t *testing.T) {
 			// Create a pod in one node to create the UDP traffic against the ClusterIP service every 5 seconds
 			// start a stale connection without marking stale creates a wrong conn track entry
 			// invalidating the NAT cache
-			if secondPod, err = podUDPStaleClient("pod-2", clusterIP, scheduledNodes[1]); err != nil {
+			if secondPod, err = podUDPStaleClient(pods[1].Name, clusterIP, pods[1].NodeName); err != nil {
 				t.Fatal(err)
 			}
 
