@@ -80,7 +80,6 @@ func TestBasicService(t *testing.T) { // nolint
 	featureSessionAffinity := features.New("SessionAffinity").WithLabel("type", "cluster_ip_sessionAffinity").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
-			// add new label to two pods, pod-3 and pod-4
 			labelKey := "app"
 			labelValue := "test-session-affinity"
 			// create new pods with session affinity labels
@@ -390,14 +389,15 @@ func TestExternalService(t *testing.T) {
 	pods := model.AllPods()
 	var services kubernetes.Services
 
-	// Create a node port traffic local service for pod-1 only
+	testingPodForNodePortLocal := pods[0]
+	// Create a node port traffic local service for one pod only
 	// and share the NodePort with all other pods, the test is using
 	// the same port via different nodes IPs (where each pod is scheduled)
 	featureNodePortLocal := features.New("NodePort Traffic Local").WithLabel("type", "node_port_traffic_local").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			services = make(kubernetes.Services, len(pods))
 			// Create a kubernetes service based in the service spec
-			var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), pods[0].NodePortLocalService())
+			var service kubernetes.ServiceBase = kubernetes.NewService(manager.GetClientSet(), testingPodForNodePortLocal.NodePortLocalService())
 			if _, err := service.Create(); err != nil {
 				t.Error(err)
 			}
@@ -436,14 +436,14 @@ func TestExternalService(t *testing.T) {
 		Assess("should be reachable via NodePortLocal k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 			zap.L().Info("Testing NodePortLocal with TCP protocol.")
 			reachabilityTCP := matrix.NewReachability(pods, false)
-			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
+			reachabilityTCP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: testingPodForNodePortLocal.Name}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.NodePort,
 			}, true, false), t)
 
 			zap.L().Info("Testing NodePortLocal with UDP protocol.")
 			reachabilityUDP := matrix.NewReachability(pods, false)
-			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: "pod-1"}, true)
+			reachabilityUDP.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: testingPodForNodePortLocal.Name}, true)
 			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				Protocol: v1.ProtocolUDP, Reachability: reachabilityUDP, ServiceType: entities.NodePort,
 			}, true, false), t)
