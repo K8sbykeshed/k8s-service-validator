@@ -79,10 +79,6 @@ func TestBasicService(t *testing.T) { // nolint
 	podsWithAffinity := make([]*entities.Pod, 2)
 	featureSessionAffinity := features.New("SessionAffinity").WithLabel("type", "cluster_ip_sessionAffinity").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
-			nodes, err := manager.GetReadyNodes()
-			if err != nil {
-				t.Fatal(err)
-			}
 			services = make(kubernetes.Services, len(pods))
 			// add new label to two pods, pod-3 and pod-4
 			labelKey := "app"
@@ -96,10 +92,9 @@ func TestBasicService(t *testing.T) { // nolint
 						{Port: 80, Protocol: v1.ProtocolTCP},
 						{Port: 81, Protocol: v1.ProtocolTCP},
 					},
-					NodeName: nodes[1].Name,
-					Labels:   map[string]string{labelKey: labelValue},
+					Labels: map[string]string{labelKey: labelValue},
 				}
-				err = manager.InitializePod(newPod)
+				err := manager.InitializePod(newPod)
 				if err != nil {
 					t.Fatal(err)
 				}

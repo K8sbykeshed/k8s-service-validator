@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/k8sbykeshed/k8s-service-validator/consts"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,21 +29,14 @@ var errPodCompleted = fmt.Errorf("pod ran to completion")
 
 // WaitForPodRunningInNamespace waits the given timeout duration for the
 // specified pod to be ready and running.
-func WaitForPodRunningInNamespace(c *kubernetes.Clientset, pod *v1.Pod) error {
+func WaitForPodRunningInNamespace(c *kubernetes.Clientset, pod *v1.Pod, pendingPodsForTaints map[string]int) error {
 	if pod.Status.Phase == v1.PodRunning {
 		return nil
 	}
-	return wait.PollImmediate(poll, timeout, podRunning(c, pod.Name, pod.Namespace))
+	return wait.PollImmediate(poll, timeout, podRunning(c, pod.Name, pod.Namespace, pendingPodsForTaints))
 }
 
-// WaitForPodNameRunningInNamespace waits default amount of time (PodStartTimeout) for the specified pod to become running.
-// Returns an error if timeout occurs first, or pod goes in to failed state.
-func WaitForPodNameRunningInNamespace(c *kubernetes.Clientset, podName, namespace string) error {
-	timeout := 5 * time.Minute
-	return wait.PollImmediate(poll, timeout, podRunning(c, podName, namespace))
-}
-
-func podRunning(c *kubernetes.Clientset, podName, namespace string) wait.ConditionFunc {
+func podRunning(c *kubernetes.Clientset, podName, namespace string, pendingPodsForTaints map[string]int) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 		if err != nil {
@@ -52,6 +47,13 @@ func podRunning(c *kubernetes.Clientset, podName, namespace string) wait.Conditi
 			return true, nil
 		case v1.PodFailed, v1.PodSucceeded:
 			return false, errPodCompleted
+		case v1.PodPending:
+			pendingPodsForTaints[podName]++
+			if pendingPodsForTaints[podName] > consts.PollTimesToDeterminePendingPod {
+				// determined this pod stale in pending state, may because of taints, stop waiting, delete the pod
+				return true, nil
+			}
+			return false, nil
 		}
 		return false, nil
 	}

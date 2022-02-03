@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/k8sbykeshed/k8s-service-validator/consts"
+
 	"go.uber.org/zap/zapcore"
 
 	"github.com/k8sbykeshed/k8s-service-validator/matrix"
@@ -92,6 +94,22 @@ func TestMain(m *testing.M) {
 			model = matrix.NewModel([]string{namespace}, pods, []int32{80, 81}, []v1.Protocol{v1.ProtocolTCP, v1.ProtocolUDP}, dnsDomain)
 			if err = manager.StartPods(model, nodes); err != nil {
 				log.Fatal(err)
+			}
+
+			if len(manager.PendingPods) > 0 {
+				// Remove pods which are pending because of taints
+				zap.L().Info(fmt.Sprintf("Removing %v pods as stale in pending(likely because of taints).", len(manager.PendingPods)))
+				for pendingPods, pollTimes := range manager.PendingPods {
+					if pollTimes > consts.PollTimesToDeterminePendingPod {
+						err := model.RemovePod(pendingPods, namespace)
+						if err != nil {
+							zap.L().Debug(err.Error())
+						}
+						if err := manager.DeletePod(pendingPods, namespace); err != nil {
+							log.Fatal(err)
+						}
+					}
+				}
 			}
 
 			// Wait until HTTP servers are up.
