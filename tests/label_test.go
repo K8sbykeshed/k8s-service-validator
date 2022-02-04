@@ -42,10 +42,8 @@ func TestLabels(t *testing.T) { // nolint
 	downReachability := matrix.NewReachability(pods, true)
 	downReachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: toPod.Name}, false)
 
-	getSetupFunc := func(labelKey, labelValue string) features.Func {
+	getSetupFunc := func() features.Func {
 		return func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
-			var err error
-
 			// create a service without the label, but will be toggled later
 			toggledService = kubernetes.NewService(manager.GetClientSet(), toPod.ClusterIPService())
 			if _, err := toggledService.Create(); err != nil {
@@ -106,12 +104,12 @@ func TestLabels(t *testing.T) { // nolint
 	}
 
 	featureProxyNameLabel := features.New("ProxyNameLabel").WithLabel("type", "ProxyNameLabel").
-		Setup(getSetupFunc(proxyNameLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Setup(getSetupFunc()).Teardown(teardown).
 		Assess("should implement service.kubernetes.io/service-proxy-name",
 			getAssessFunc(proxyNameLabelKey, proxyNameLabelValue)).Feature()
 
 	featureHeadlessLabel := features.New("HeadlessLabel").WithLabel("type", "HeadlessLabel").
-		Setup(getSetupFunc(headlessLabelKey, proxyNameLabelValue)).Teardown(teardown).
+		Setup(getSetupFunc()).Teardown(teardown).
 		Assess("should implement service.kubernetes.io/headless",
 			getAssessFunc(headlessLabelKey, headlessLabelValue)).Feature()
 
