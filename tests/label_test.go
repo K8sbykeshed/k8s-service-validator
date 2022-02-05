@@ -93,8 +93,12 @@ func TestLabels(t *testing.T) { // nolint
 			zap.L().Info("remove label from the toggledService", zap.String("label", labelKey))
 			mustOrFatal(toggledService.RemoveLabel(labelKey), t)
 
-			toPod.SetClusterIP(toggledService.GetClusterIP())
 			zap.L().Info("verify the toggledService is up again without", zap.String("label", labelKey))
+			clusterIP, err := toggledService.WaitForClusterIP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			toPod.SetClusterIP(clusterIP)
 			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
 				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: upReachability,
 				ServiceType: entities.ClusterIP,
