@@ -42,24 +42,22 @@ func TestLabels(t *testing.T) { // nolint
 	downReachability := matrix.NewReachability(pods, true)
 	downReachability.ExpectPeer(&matrix.Peer{Namespace: namespace}, &matrix.Peer{Namespace: namespace, Pod: toPod.Name}, false)
 
-	getSetupFunc := func() features.Func {
-		return func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
-			// create a service without the label, but will be toggled later
-			toggledService = kubernetes.NewService(manager.GetClientSet(), toPod.ClusterIPService())
-			if _, err := toggledService.Create(); err != nil {
-				t.Fatal()
-			}
-
-			// wait for the toggled service
-			if result, err := toggledService.WaitForEndpoint(); err != nil || !result {
-				t.Fatal(errors.New("no endpoint available"))
-			}
-
-			if toggledClusterIP, err := toggledService.WaitForClusterIP(); err != nil || toggledClusterIP == "" {
-				t.Fatal(errors.New("no cluster IP available"))
-			}
-			return ctx
+	setup := func(_ context.Context, t *testing.T, _ *envconf.Config) context.Context {
+		// create a service without the label, but will be toggled later
+		toggledService = kubernetes.NewService(manager.GetClientSet(), toPod.ClusterIPService())
+		if _, err := toggledService.Create(); err != nil {
+			t.Fatal()
 		}
+
+		// wait for the toggled service
+		if result, err := toggledService.WaitForEndpoint(); err != nil || !result {
+			t.Fatal(errors.New("no endpoint available"))
+		}
+
+		if toggledClusterIP, err := toggledService.WaitForClusterIP(); err != nil || toggledClusterIP == "" {
+			t.Fatal(errors.New("no cluster IP available"))
+		}
+		return ctx
 	}
 
 	teardown := func(context.Context, *testing.T, *envconf.Config) context.Context {
@@ -108,12 +106,12 @@ func TestLabels(t *testing.T) { // nolint
 	}
 
 	featureProxyNameLabel := features.New("ProxyNameLabel").WithLabel("type", "ProxyNameLabel").
-		Setup(getSetupFunc()).Teardown(teardown).
+		Setup(setup).Teardown(teardown).
 		Assess("should implement service.kubernetes.io/service-proxy-name",
 			getAssessFunc(proxyNameLabelKey, proxyNameLabelValue)).Feature()
 
 	featureHeadlessLabel := features.New("HeadlessLabel").WithLabel("type", "HeadlessLabel").
-		Setup(getSetupFunc()).Teardown(teardown).
+		Setup(setup).Teardown(teardown).
 		Assess("should implement service.kubernetes.io/headless",
 			getAssessFunc(headlessLabelKey, headlessLabelValue)).Feature()
 
