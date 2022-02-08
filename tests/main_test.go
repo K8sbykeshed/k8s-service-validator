@@ -99,15 +99,16 @@ func TestMain(m *testing.M) {
 			if len(manager.PendingPods) > 0 {
 				// Remove pods which are pending because of taints
 				zap.L().Info(fmt.Sprintf("Removing %v pods as stale in pending(likely because of taints).", len(manager.PendingPods)))
-				for pendingPods, pollTimes := range manager.PendingPods {
+				for pendingPod, pollTimes := range manager.PendingPods {
 					if pollTimes > consts.PollTimesToDeterminePendingPod {
-						err := model.RemovePod(pendingPods, namespace)
+						err := model.RemovePod(pendingPod, namespace)
 						if err != nil {
 							zap.L().Debug(err.Error())
 						}
-						if err := manager.DeletePod(pendingPods, namespace); err != nil {
+						if err := manager.DeletePod(pendingPod, namespace); err != nil {
 							log.Fatal(err)
 						}
+						delete(manager.PendingPods, pendingPod)
 					}
 				}
 			}
