@@ -154,6 +154,28 @@ func (k *KubeManager) DeletePod(podName, namespaceName string) error {
 	return nil
 }
 
+// RemovePendingPodsInNamespace removes all pods in the pending state under certain namespace.
+func (k *KubeManager) RemovePendingPodsInNamespace(model *Model, namespaceName string) error {
+	if len(k.PendingPods) > 0 {
+		// Remove pods which are pending because of taints
+		zap.L().Info(fmt.Sprintf("Removing %v pods as stale in pending(likely because of taints).", len(k.PendingPods)),
+			zap.String("namespace", namespaceName))
+		for pendingPod, pollTimes := range k.PendingPods {
+			if pollTimes > consts.PollTimesToDeterminePendingPod {
+				err := model.RemovePod(pendingPod, namespaceName)
+				if err != nil {
+					zap.L().Debug(err.Error())
+				}
+				if err := k.DeletePod(pendingPod, namespaceName); err != nil {
+					return err
+				}
+				delete(k.PendingPods, pendingPod)
+			}
+		}
+	}
+	return nil
+}
+
 // CreateNamespace creates a new K8S namespace
 func (k *KubeManager) CreateNamespace(nsSpec *v1.Namespace) (*v1.Namespace, error) {
 	namespace, err := k.clientSet.CoreV1().Namespaces().Create(context.TODO(), nsSpec, metav1.CreateOptions{})
