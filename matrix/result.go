@@ -31,10 +31,14 @@ func prettyString(num float64, unit string) string {
 	}
 }
 
+func (r *ProbeJobBandwidthResults) BandwidthToBytes() float64 {
+	return r.Bandwidth/8
+}
+
 // PrettyString prints human-readable string for bandwidth
 func (r *ProbeJobBandwidthResults) PrettyString(inBytes bool) string {
 	if inBytes {
-		return prettyString(r.Bandwidth/8, "Bytes")
+		return prettyString(r.BandwidthToBytes(), "Bytes")
 	}
 	return prettyString(r.Bandwidth, "Bits")
 }

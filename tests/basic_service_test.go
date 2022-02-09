@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	"testing"
 	"time"
 
@@ -479,5 +480,36 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureNodePortLocal, featureExternal)
+	featurePerfTesting := features.New("PerfTesting").WithLabel("type", "perf_testing").
+		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			iperf := commands.NewIPerfServer(80, v1.ProtocolTCP)
+			perfPod := &entities.Pod{
+				Name:      fmt.Sprintf("per-%d", 1),
+				Namespace: namespace,
+				Containers: []*entities.Container{
+					{Port: 80, Protocol: v1.ProtocolTCP, Command: iperf.ServeCommand()},
+				},
+			}
+			err := manager.InitializePod(perfPod)
+			if err != nil {
+				t.Fatal(err)
+			}
+			model.AddPod(perfPod, namespace)
+
+			return ctx
+		}).
+		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
+			tools.ResetTestBoard(t, services, model)
+			return ctx
+		}).
+		Assess("should be reachable via ExternalName k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			zap.L().Info("Creating External service")
+			reachability := matrix.NewReachability(model.AllPods(), true)
+			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
+			}, false, false), t)
+			return ctx
+		}).Feature()
+
+	testenv.Test(t, featureNodePortLocal, featureExternal, featurePerfTesting)
 }

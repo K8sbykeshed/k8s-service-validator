@@ -2,7 +2,7 @@ package matrix
 
 import (
 	"fmt"
-
+	"github.com/k8sbykeshed/k8s-service-validator/consts"
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"go.uber.org/zap"
 
@@ -38,7 +38,7 @@ type Reachability struct {
 func NewReachability(pods []*entities.Pod, defaultExpectation bool) *Reachability {
 	podNames := make([]string, len(pods))
 	for i, pod := range pods {
-		podNames[i] = pod.PodString().String()
+		podNames[i] = pod.NodePodString()
 	}
 	r := &Reachability{
 		Expected: NewTruthTableFromItems(podNames, &defaultExpectation),
@@ -50,7 +50,7 @@ func NewReachability(pods []*entities.Pod, defaultExpectation bool) *Reachabilit
 
 // PrintSummary prints the summary
 func (r *Reachability) PrintSummary(printExpected, printObserved, printComparison, printBandwidth bool) {
-	right, wrong, ignored, comparison := r.Summary(false)
+	right, wrong, ignored, comparison := r.Summary(false, false)
 	if ignored > 0 {
 		zap.L().Warn(fmt.Sprintf("warning: this test doesn't take into consideration hairpin traffic, i.e. traffic whose source and destination is the same pod: %d cases ignored", ignored))
 	}
@@ -59,7 +59,7 @@ func (r *Reachability) PrintSummary(printExpected, printObserved, printCompariso
 	if printExpected {
 		zap.L().Info(fmt.Sprintf("expected:\n\n%s\n\n\n", r.Expected.PrettyPrint("")))
 	}
-	if printObserved {
+	if !printBandwidth && printObserved {
 		zap.L().Info(fmt.Sprintf("observed:\n\n%s\n\n\n", r.Observed.PrettyPrint("")))
 	}
 	if printBandwidth {
@@ -71,21 +71,32 @@ func (r *Reachability) PrintSummary(printExpected, printObserved, printCompariso
 }
 
 // Summary produces a useful summary of expected and observed model
-func (r *Reachability) Summary(ignoreLoopback bool) (trueObs, falseObs, ignoredObs int, comparison *TruthTable) {
-	comparison = r.Expected.Compare(r.Observed)
-	if !comparison.IsComplete() {
-		fmt.Println("observations not complete!")
-	}
+func (r *Reachability) Summary(ignoreLoopback bool, measureBandWidth bool) (trueObs, falseObs, ignoredObs int, comparison *TruthTable) {
 	falseObs, trueObs, ignoredObs = 0, 0, 0
-	for from, dict := range comparison.Values {
-		for to, val := range dict {
-			if ignoreLoopback && from == to {
-				// Never fail on loopback, because its not yet defined.
-				ignoredObs++
-			} else if val {
-				trueObs++
-			} else {
-				falseObs++
+	if !measureBandWidth {
+		comparison = r.Expected.Compare(r.Observed)
+		if !comparison.IsComplete() {
+			fmt.Println("observations not complete!")
+		}
+		for from, dict := range comparison.Values {
+			for to, val := range dict {
+				if ignoreLoopback && from == to {
+					// Never fail on loopback, because its not yet defined.
+					ignoredObs++
+				} else if val {
+					trueObs++
+				} else {
+					falseObs++
+				}
+			}
+		}
+	} else {
+		// if is perf test, modify "falseObs" to respect the bandwidth benchmark
+		for _, bandwidths := range r.Observed.Bandwidths {
+			for _, bandwidth := range bandwidths {
+				if bandwidth == nil || bandwidth.BandwidthToBytes() < consts.PerfTestBandWidthBenchMarkMegabytesPerSecond {
+					falseObs++
+				}
 			}
 		}
 	}
@@ -120,7 +131,7 @@ func (r *Reachability) ExpectPeer(from, to *Peer, connected bool) {
 }
 
 // Observe records a single connectivity observation
-func (r *Reachability) Observe(fromPod, toPod entities.PodString, isConnected bool, bandwidth *ProbeJobBandwidthResults) {
-	r.Observed.Set(string(fromPod), string(toPod), isConnected)
-	r.Observed.SetBandwidth(string(fromPod), string(toPod), bandwidth)
+func (r *Reachability) Observe(fromPod, toPod string, isConnected bool, bandwidth *ProbeJobBandwidthResults) {
+	r.Observed.Set(fromPod, toPod, isConnected)
+	r.Observed.SetBandwidth(fromPod, toPod, bandwidth)
 }
