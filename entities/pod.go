@@ -123,6 +123,11 @@ func (p *Pod) PodString() PodString {
 	return NewPodString(p.Namespace, p.Name)
 }
 
+// NodePodString returns a string with format <node name>/<namespace>/<pod name>
+func (p *Pod) NodePodString() string{
+	return NodePodString(p.NodeName, p.PodString())
+}
+
 // ServiceName returns the unqualified service name
 func (p *Pod) ServiceName() string {
 	return fmt.Sprintf("s-%s-%s", p.Namespace, p.Name)
@@ -190,6 +195,10 @@ type PodString string
 // NewPodString generates a new PodString from the pod from pod name and namespace
 func NewPodString(namespace, podName string) PodString {
 	return PodString(fmt.Sprintf("%s/%s", namespace, podName))
+}
+
+func NodePodString(nodeName string, podString PodString) string {
+	return fmt.Sprintf("%s/%v", nodeName, podString)
 }
 
 // Namespace extracts the namespace

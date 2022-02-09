@@ -167,7 +167,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			zap.L().Debug("Validating matrix.", fields...)
 		}
 
-		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected, result.Bandwidth)
+		testCase.Reachability.Observe(job.PodFrom.NodePodString(), job.PodTo.NodePodString(), result.IsConnected, result.Bandwidth)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {

@@ -73,13 +73,13 @@ func ValidateAndMeasureBandwidthOrFail(k8s *KubeManager, model *Model, testCase 
 	ProbePodToPodConnectivity(k8s, model, testCase, reachTargetPod, measureBandWidth)
 
 	// 2nd try, in case first one failed
-	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback); wrong != 0 {
+	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback, measureBandWidth); wrong != 0 {
 		zap.L().Warn("Failed first probe with wrong results, retrying...", zap.Int("wrong", wrong))
 		ProbePodToPodConnectivity(k8s, model, testCase, reachTargetPod, measureBandWidth)
 	}
 
 	// at this point we know if we passed or failed, print final matrix and pass/fail the test.
-	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback); wrong != 0 {
+	if _, wrong, _, _ = testCase.Reachability.Summary(ignoreLoopback, measureBandWidth); wrong != 0 {
 		testCase.Reachability.PrintSummary(true, true, true, measureBandWidth)
 		zap.L().Info("Had wrong results in reachability matrix", zap.Int("wrong", wrong))
 	}

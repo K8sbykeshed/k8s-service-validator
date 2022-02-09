@@ -321,7 +321,7 @@ func (k *KubeManager) WaitForHTTPServers(model *Model) error {
 			reachability := NewReachability(model.AllPods(), true)
 			testCase.Reachability = reachability
 			ProbePodToPodConnectivity(k, model, testCase, false, false)
-			_, wrong, _, _ := reachability.Summary(false)
+			_, wrong, _, _ := reachability.Summary(false, false)
 			if wrong == 0 {
 				zap.L().Debug("Server is ready", zap.String("case", caseName))
 				delete(notReady, caseName)
