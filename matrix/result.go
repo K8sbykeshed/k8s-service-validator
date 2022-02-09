@@ -32,7 +32,7 @@ func prettyString(num float64, unit string) string {
 }
 
 func (r *ProbeJobBandwidthResults) BandwidthToBytes() float64 {
-	return r.Bandwidth/8
+	return r.Bandwidth / 8
 }
 
 // PrettyString prints human-readable string for bandwidth

@@ -67,6 +67,16 @@ func (p *Pod) SetHostIP(hostIP string) {
 	p.HostIP = hostIP
 }
 
+// GetNodeName returns node name for the pod
+func (p *Pod) GetNodeName() string {
+	return p.NodeName
+}
+
+// SetNodeName sets node name for the pod
+func (p *Pod) SetNodeName(nodeName string) {
+	p.NodeName = nodeName
+}
+
 // GetClusterIP returns PodIP for the pod
 func (p *Pod) GetClusterIP() string {
 	return p.clusterIP
@@ -118,14 +128,21 @@ func (p *Pod) SetExternalIPs(externalIPs []ExternalIP) {
 	p.ExternalIPs = externalIPs
 }
 
-// PodString returns a corresponding pod string
-func (p *Pod) PodString() PodString {
-	return NewPodString(p.Namespace, p.Name)
+// IsPerf returns true if the pod is an iperf server for performance testing
+func (p *Pod) IsPerf() bool {
+	for _, container := range p.Containers {
+		for _, cmd := range container.Command {
+			if strings.Contains(cmd, "iperf") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-// NodePodString returns a string with format <node name>/<namespace>/<pod name>
-func (p *Pod) NodePodString() string{
-	return NodePodString(p.NodeName, p.PodString())
+// PodString returns a corresponding pod string
+func (p *Pod) PodString() PodString {
+	return NewPodString(p.NodeName, p.Namespace, p.Name)
 }
 
 // ServiceName returns the unqualified service name
@@ -193,26 +210,22 @@ func DefaultTolerationsForWindowsNodes() []v1.Toleration {
 type PodString string
 
 // NewPodString generates a new PodString from the pod from pod name and namespace
-func NewPodString(namespace, podName string) PodString {
-	return PodString(fmt.Sprintf("%s/%s", namespace, podName))
-}
-
-func NodePodString(nodeName string, podString PodString) string {
-	return fmt.Sprintf("%s/%v", nodeName, podString)
+func NewPodString(nodeName, namespace, podName string) PodString {
+	return PodString(fmt.Sprintf("%s/%s/%s", nodeName, namespace, podName))
 }
 
 // Namespace extracts the namespace
 func (pod PodString) Namespace() string {
-	ns, _ := pod.split()
+	_, ns, _ := pod.split()
 	return ns
 }
 
-func (pod PodString) split() (string, string) { // nolint
+func (pod PodString) split() (string, string, string) { // nolint
 	pieces := strings.Split(string(pod), "/")
-	if len(pieces) != 2 {
-		zap.L().Error(fmt.Sprintf("expected ns/pod, found %+v", pieces))
+	if len(pieces) != 3 {
+		zap.L().Error(fmt.Sprintf("expected node/ns/pod, found %+v", pieces))
 	}
-	return pieces[0], pieces[1]
+	return pieces[0], pieces[1], pieces[2]
 }
 
 // String stringify the pod
@@ -222,8 +235,14 @@ func (pod PodString) String() string {
 
 // PodName extracts the pod name
 func (pod PodString) PodName() string {
-	_, podName := pod.split()
+	_, _, podName := pod.split()
 	return podName
+}
+
+// NodeName extracts the node name
+func (pod PodString) NodeName() string {
+	nodeName, _, _ := pod.split()
+	return nodeName
 }
 
 // ResetService erases service related fields on pod, to clear taint from previous test for starting new journey

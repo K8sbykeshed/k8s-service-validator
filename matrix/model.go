@@ -2,7 +2,6 @@ package matrix
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	v1 "k8s.io/api/core/v1"
@@ -47,6 +46,7 @@ func (m *Model) AddNamespaceWithImageAndCommands(namespaceName string, podNames 
 func (m *Model) AddNamespace(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol) *entities.Namespace {
 	namespace := entities.NewNamespaceWithPods(namespaceName, podNames, ports, protocols)
 	m.Namespaces = append(m.Namespaces, namespace)
+	m.pods = nil // repopulate the pod cache
 	return namespace
 }
 
@@ -55,6 +55,7 @@ func (m *Model) AddNamespace(namespaceName string, podNames []string, ports []in
 func (m *Model) AddIPerfNamespace(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol) *entities.Namespace {
 	iperfNamespace := entities.NewNamespaceWithIPerfPods(namespaceName, podNames, ports, protocols)
 	m.Namespaces = append(m.Namespaces, iperfNamespace)
+	m.pods = nil // repopulate the pod cache
 	return iperfNamespace
 }
 
@@ -101,18 +102,6 @@ func (m *Model) AllPods() []*entities.Pod {
 	return *m.pods
 }
 
-// AllIPerfPods returns a slice of all pods in the iperf namespace
-func (m *Model) AllIPerfPods() []*entities.Pod {
-	var iperfPods []*entities.Pod
-	m.AllPods()
-	for _, ns := range m.Namespaces {
-		if strings.HasSuffix(ns.Name, entities.IPerfNamespaceSuffix) {
-			iperfPods = append(iperfPods, ns.Pods...)
-		}
-	}
-	return iperfPods
-}
-
 func (m *Model) ResetAllPods() {
 	pods := m.AllPods()
 	for _, p := range pods {
@@ -152,15 +141,15 @@ func (m *Model) RemovePod(podName, namespaceName string) error {
 	}
 
 	if foundNamespace {
+		for i, p := range ns.Pods {
+			if p.Name == podName {
+				ns.Pods = append(ns.Pods[:i], ns.Pods[i+1:]...)
+			}
+		}
 		for i, p := range *m.pods {
 			if p.Name == podName {
 				*m.pods = append((*m.pods)[:i], (*m.pods)[i+1:]...)
 				return nil
-			}
-		}
-		for i, p := range ns.Pods {
-			if p.Name == podName {
-				ns.Pods = append(ns.Pods[:i], ns.Pods[i+1:]...)
 			}
 		}
 	}

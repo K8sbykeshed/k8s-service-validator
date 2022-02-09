@@ -43,7 +43,7 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 				Err:         nil,
 				Command:     "skip",
 			}
-			return
+			continue
 		}
 
 		// Choose the host and port based on service or probing
@@ -110,19 +110,20 @@ func probeWorker(manager *KubeManager, jobs <-chan *ProbeJob, results chan<- *Pr
 // ProbePodToPodConnectivity runs a series of probes in kube, and records the results in `testCase.Reachability`
 func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCase, reachTargetPod, measureBandwidth bool) {
 	numberOfWorkers := 4 // See https://github.com/kubernetes/kubernetes/pull/97690
-	allPods := model.AllPods()
-	if measureBandwidth {
-		allPods = model.AllIPerfPods()
-	}
-	size := len(allPods) * len(allPods)
+
+	var fromPods, toPods []*entities.Pod
+	fromPods = model.AllPods()
+	toPods = model.AllPods()
+	size := len(fromPods) * len(toPods)
+
 	jobs := make(chan *ProbeJob, size)
 	results := make(chan *ProbeJobResults, size)
 	for i := 1; i < numberOfWorkers; i++ {
 		go probeWorker(k8s, jobs, results)
 	}
 
-	for _, podFrom := range allPods {
-		for _, podTo := range allPods {
+	for _, podFrom := range fromPods {
+		for _, podTo := range toPods {
 			// if testcase global toPort not set, fallbacks to Pod custom set Port.
 			toPort := testCase.ToPort
 			if toPort == 0 {
@@ -167,7 +168,7 @@ func ProbePodToPodConnectivity(k8s *KubeManager, model *Model, testCase *TestCas
 			zap.L().Debug("Validating matrix.", fields...)
 		}
 
-		testCase.Reachability.Observe(job.PodFrom.NodePodString(), job.PodTo.NodePodString(), result.IsConnected, result.Bandwidth)
+		testCase.Reachability.Observe(job.PodFrom.PodString(), job.PodTo.PodString(), result.IsConnected, result.Bandwidth)
 		expected := testCase.Reachability.Expected.Get(job.PodFrom.PodString().String(), job.PodTo.PodString().String())
 
 		if result.IsConnected != expected {

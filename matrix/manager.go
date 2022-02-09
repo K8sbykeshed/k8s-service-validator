@@ -107,7 +107,7 @@ func (k *KubeManager) WaitAndSetIPs(modelPod *entities.Pod) error {
 		modelPod.SetPodIP(kubePod.Status.PodIP)
 		modelPod.SetHostIP(kubePod.Status.HostIP)
 	}
-
+	modelPod.SetNodeName(kubePod.Spec.NodeName)
 	return nil
 }
 
