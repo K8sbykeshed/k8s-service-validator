@@ -171,7 +171,7 @@ func (tt *TruthTable) PrettyPrintBandwidth(indent string) string {
 			bandwidth := tt.Bandwidths[from][to]
 			var mark string
 			if bandwidth == nil {
-				mark = "X"
+				mark = "nil"
 			} else {
 				mark = tt.Bandwidths[from][to].PrettyString(true)
 			}

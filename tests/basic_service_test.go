@@ -3,9 +3,10 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	"testing"
 	"time"
+
+	"github.com/k8sbykeshed/k8s-service-validator/commands"
 
 	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
@@ -480,6 +481,12 @@ func TestExternalService(t *testing.T) {
 			return ctx
 		}).Feature()
 
+	testenv.Test(t, featureNodePortLocal, featureExternal)
+}
+
+func TestPerformance(t *testing.T) {
+	var services kubernetes.Services
+
 	featurePerfTesting := features.New("PerfTesting").WithLabel("type", "perf_testing").
 		Setup(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			iperf := commands.NewIPerfServer(80, v1.ProtocolTCP)
@@ -495,21 +502,26 @@ func TestExternalService(t *testing.T) {
 				t.Fatal(err)
 			}
 			model.AddPod(perfPod, namespace)
-
 			return ctx
 		}).
 		Teardown(func(context.Context, *testing.T, *envconf.Config) context.Context {
 			tools.ResetTestBoard(t, services, model)
 			return ctx
 		}).
-		Assess("should be reachable via ExternalName k8s service", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
-			zap.L().Info("Creating External service")
-			reachability := matrix.NewReachability(model.AllPods(), true)
-			tools.MustNoWrong(matrix.ValidateOrFail(manager, model, &matrix.TestCase{
-				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachability, ServiceType: entities.ExternalName,
-			}, false, false), t)
+		Assess("should perform performance testing.", func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+			zap.L().Info("Measure pod-to-pod connectivity performance to the iperf server.")
+			// skip the probe for non-perf pods
+			for _, pod := range model.AllPods() {
+				if !pod.IsPerf() {
+					pod.SkipProbe = true
+				}
+			}
+			reachabilityTCP := matrix.NewReachability(model.AllPods(), true)
+			tools.MustNoWrong(matrix.ValidateAndMeasureBandwidthOrFail(manager, model, &matrix.TestCase{
+				ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.PodIP,
+			}, false, false, true), t)
 			return ctx
 		}).Feature()
 
-	testenv.Test(t, featureNodePortLocal, featureExternal, featurePerfTesting)
+	testenv.Test(t, featurePerfTesting)
 }

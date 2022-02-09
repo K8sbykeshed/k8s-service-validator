@@ -26,7 +26,6 @@ func TestBandwidth(t *testing.T) {
 		err                error
 
 		nodes          []*v1.Node
-		pods           []*entities.Pod
 		iperfNamespace *entities.Namespace
 	)
 
@@ -46,8 +45,7 @@ func TestBandwidth(t *testing.T) {
 				log.Fatal(err)
 			}
 			zap.L().Info("Wait and set iPerf pods IP.")
-			pods = model.AllIPerfPods()
-			for _, pod := range pods {
+			for _, pod := range model.AllPods() {
 				if err = manager.WaitAndSetIPs(pod); err != nil {
 					log.Fatal(err)
 				}
@@ -55,29 +53,28 @@ func TestBandwidth(t *testing.T) {
 			if err = manager.RemovePendingPodsInNamespace(model, iperfNamespaceName); err != nil {
 				log.Fatal(err)
 			}
-			// Wait until HTTP servers including iperf are up.
-			if err = manager.WaitForHTTPServers(model); err != nil {
-				log.Fatal(err)
-			}
 			return ctx
 		}).
-		Assess("bandwidth test",
-			func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
-				pods = model.AllIPerfPods()
-
-				zap.L().Info("Measure bandwidth across nodes.")
-				reachabilityTCP := matrix.NewReachability(pods, true)
-				tools.MustNoWrong(matrix.ValidateAndMeasureBandwidthOrFail(manager, model, &matrix.TestCase{
-					ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.PodIP,
-				}, false, false, true), t)
-				return ctx
-			}).
 		Teardown(
 			func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
 				zap.L().Info("Cleanup iperf namespace.", zap.String("namespace", iperfNamespaceName))
 				if err := manager.DeleteNamespaces([]string{iperfNamespaceName}); err != nil {
 					log.Fatal(err)
 				}
+				return ctx
+			}).
+		Assess("bandwidth test",
+			func(ctx context.Context, t *testing.T, config *envconf.Config) context.Context {
+				zap.L().Info("Measure bandwidth across nodes.")
+				reachabilityTCP := matrix.NewReachability(model.AllPods(), true)
+				for _, toPod := range model.AllPods() {
+					if !toPod.IsPerf() {
+						toPod.SkipProbe = true
+					}
+				}
+				tools.MustNoWrong(matrix.ValidateAndMeasureBandwidthOrFail(manager, model, &matrix.TestCase{
+					ToPort: 80, Protocol: v1.ProtocolTCP, Reachability: reachabilityTCP, ServiceType: entities.PodIP,
+				}, false, false, true), t)
 				return ctx
 			}).
 		Feature()
