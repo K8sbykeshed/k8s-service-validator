@@ -31,6 +31,10 @@ func prettyString(num float64, unit string) string {
 	}
 }
 
+func (r *ProbeJobBandwidthResults) BandwidthToMegaBytes() float64 {
+	return r.Bandwidth / 8000000
+}
+
 func (r *ProbeJobBandwidthResults) BandwidthToBytes() float64 {
 	return r.Bandwidth / 8
 }

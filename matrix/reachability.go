@@ -89,7 +89,7 @@ func (r *Reachability) Summary(ignoreLoopback, measureBandWidth bool) (trueObs, 
 				} else {
 					connected := r.Observed.Values[from][to]
 					bandwidth := r.Observed.Bandwidths[from][to]
-					if connected && (bandwidth != nil && bandwidth.BandwidthToBytes() < consts.PerfTestBandWidthBenchMarkMegabytesPerSecond) {
+					if connected && (bandwidth != nil && bandwidth.BandwidthToMegaBytes() < consts.PerfTestBandWidthBenchMarkMegabytesPerSecond) {
 						falseObs++
 					} else {
 						trueObs++
