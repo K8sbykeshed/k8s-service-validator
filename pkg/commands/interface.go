@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	ek "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	ek "github.com/k8sbykeshed/k8s-service-validator/pkg/entities/kubernetes"
 )
 
 // Executor supports Execute function that performs a probe, client method only

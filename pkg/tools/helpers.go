@@ -7,9 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/k8sbykeshed/k8s-service-validator/matrix"
-
-	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/matrix"
 )
 
 func ResetTestBoard(t *testing.T, s kubernetes.Services, m *matrix.Model) {

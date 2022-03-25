@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-
-	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/commands"
 )
 
 type (

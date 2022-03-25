@@ -1,9 +1,10 @@
 package entities
 
 import (
-	"github.com/k8sbykeshed/k8s-service-validator/commands"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/commands"
 )
 
 const IPerfNamespaceSuffix = "-iperf"
@@ -32,7 +33,8 @@ func (ns *Namespace) LabelSelector() map[string]string {
 // NewNamespaceWithPodsGivenImageAndCommand creates a new namespace given a combinations of pod names, ports and protocol
 // also the container image and command are specified
 func NewNamespaceWithPodsGivenImageAndCommand(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol,
-	image ContainerImage, command []string) *Namespace {
+	image ContainerImage, command []string,
+) *Namespace {
 	pods := make([]*Pod, 0)
 	for _, podName := range podNames {
 		var containers []*Container
