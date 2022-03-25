@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/k8sbykeshed/k8s-service-validator/commands"
-
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	"github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
-	"github.com/k8sbykeshed/k8s-service-validator/matrix"
-	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/commands"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/tools"
 )
 
 var (

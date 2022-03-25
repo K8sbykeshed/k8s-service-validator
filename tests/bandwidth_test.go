@@ -6,14 +6,14 @@ import (
 	"log"
 	"testing"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	"github.com/k8sbykeshed/k8s-service-validator/matrix"
-	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"go.uber.org/zap"
-
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/matrix"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/tools"
 )
 
 // 1. Create a new namespace e.g. x-70212-iperf

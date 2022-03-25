@@ -1,11 +1,11 @@
 package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
 )
 
 var _ = Describe("iperf command test", func() {

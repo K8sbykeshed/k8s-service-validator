@@ -3,8 +3,9 @@ package matrix
 import (
 	"fmt"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
 )
 
 // Model defines the model for cluster data
@@ -19,7 +20,8 @@ type Model struct {
 
 // NewModel construct a Model struct used on probing and reachability comparison
 func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.Protocol,
-	dnsDomain string) *Model {
+	dnsDomain string,
+) *Model {
 	// build the entire "model" for the overall test, which means, building
 	// namespaces, pods, containers for each protocol`.
 	namespaces := make([]*entities.Namespace, len(namespaceNames))
@@ -36,7 +38,8 @@ func NewModel(namespaceNames, podNames []string, ports []int32, protocols []v1.P
 // AddNamespaceWithImageAndCommands creates a new namespace in the model with pods
 // while explicitly specifying the container image and commands to use
 func (m *Model) AddNamespaceWithImageAndCommands(namespaceName string, podNames []string, ports []int32, protocols []v1.Protocol,
-	image entities.ContainerImage, commands []string) *entities.Namespace {
+	image entities.ContainerImage, commands []string,
+) *entities.Namespace {
 	namespace := entities.NewNamespaceWithPodsGivenImageAndCommand(namespaceName, podNames, ports, protocols, image, commands)
 	m.Namespaces = append(m.Namespaces, namespace)
 	return namespace

@@ -19,9 +19,9 @@ test-perf: ## Runs full iperf test and generate bandwidth matrix on all the node
 	go test -v ./tests --labels "type=iperf"
 
 unit-test: ## Runs unit test for the service-lb validator
-	go test -v ./entities
-	go test -v ./commands
-	go test -v ./matrix
+	go test -v ./pkg/entities
+	go test -v ./pkg/commands
+	go test -v ./pkg/matrix
 
 summary: ## Summarize tests
 	gotestsum --format testname --hide-summary=skipped -- ./tests/... $(SUMMARY_OPTIONS)

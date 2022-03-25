@@ -3,11 +3,11 @@ package matrix
 import (
 	"fmt"
 
-	"github.com/k8sbykeshed/k8s-service-validator/consts"
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"go.uber.org/zap"
-
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/consts"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
 )
 
 // TestCase describes the model for a netpol test

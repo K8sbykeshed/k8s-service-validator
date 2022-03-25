@@ -6,21 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/k8sbykeshed/k8s-service-validator/consts"
-
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/k8sbykeshed/k8s-service-validator/commands"
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	ek "github.com/k8sbykeshed/k8s-service-validator/entities/kubernetes"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/commands"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/consts"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
+	ek "github.com/k8sbykeshed/k8s-service-validator/pkg/entities/kubernetes"
 )
 
 const (

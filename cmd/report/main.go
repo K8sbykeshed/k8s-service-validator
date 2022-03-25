@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/k8sbykeshed/k8s-service-validator/tools"
 	"github.com/savaki/jq"
 	"go.uber.org/zap"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/tools"
 )
 
 type Workflow struct {

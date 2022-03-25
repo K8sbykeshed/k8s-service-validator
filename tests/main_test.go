@@ -8,16 +8,15 @@ import (
 	"os"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
-	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	pluginhelper "github.com/vmware-tanzu/sonobuoy-plugins/plugin-helper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
-
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/matrix"
 )
 
 const dnsDomain = "cluster.local"

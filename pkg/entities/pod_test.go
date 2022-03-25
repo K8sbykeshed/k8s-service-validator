@@ -123,7 +123,7 @@ var _ = Describe("pod test", func() {
 	Context("pod string", func() {
 		It("should get corresponding pod string", func() {
 			podString := pod.PodString()
-			Expect(podString.String()).To(Equal("test-ns/my-pod"))
+			Expect(podString.String()).To(Equal("my-node/test-ns/my-pod"))
 			Expect(podString.PodName()).To(Equal("my-pod"))
 			Expect(podString.Namespace()).To(Equal("test-ns"))
 		})

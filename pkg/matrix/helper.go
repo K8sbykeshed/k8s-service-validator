@@ -7,16 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
-
-	"k8s.io/client-go/util/homedir"
-
-	v1 "k8s.io/api/core/v1"
-
 	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
 )
 
 // GetNamespace returns a random namespace starting on x
@@ -65,7 +63,8 @@ func ValidateOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLo
 // ValidateAndMeasureBandwidthOrFail validates connectivity and also measure bandwidth
 // if measureBandWidth is true
 func ValidateAndMeasureBandwidthOrFail(k8s *KubeManager, model *Model, testCase *TestCase, ignoreLoopback,
-	reachTargetPod, measureBandWidth bool) int {
+	reachTargetPod, measureBandWidth bool,
+) int {
 	var wrong int
 
 	// 1st try

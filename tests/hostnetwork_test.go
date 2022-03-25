@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
-	"github.com/k8sbykeshed/k8s-service-validator/matrix"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/features"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/matrix"
 )
 
 func TestHostNetwork(t *testing.T) {

@@ -1,9 +1,10 @@
 package matrix
 
 import (
-	"github.com/k8sbykeshed/k8s-service-validator/entities"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/entities"
 )
 
 // ProbeJob packages the model for the input of a pod->pod connectivity probe

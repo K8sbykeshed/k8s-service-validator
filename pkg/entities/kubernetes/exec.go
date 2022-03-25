@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/k8sbykeshed/k8s-service-validator/consts"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -18,6 +16,8 @@ import (
 	scheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/k8sbykeshed/k8s-service-validator/pkg/consts"
 )
 
 const (
