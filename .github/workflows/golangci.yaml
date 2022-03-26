@@ -17,6 +17,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2.3.0
         with:
+          args: "--out-${NO_FUTURE}format colored-line-number"
           version: latest
           working-directory: .
           skip-build-cache: true
