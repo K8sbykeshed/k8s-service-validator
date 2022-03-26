@@ -70,7 +70,7 @@ func (k *KubeManager) StartPods(model *Model, nodes []*v1.Node) error {
 	for _, ns := range model.Namespaces { // create namespaces
 		// Check size of nodes and already modeled pods
 		if len(ns.Pods) != len(nodes) || len(nodes) <= 1 {
-			return errors.Errorf("invalid number of %d nodes.", len(nodes))
+			return errors.Errorf("invalid number of %d nodes", len(nodes))
 		}
 		if err := k.StartPodsInNamespace(model, nodes, ns); err != nil {
 			return err
