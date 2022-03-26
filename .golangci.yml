@@ -28,14 +28,12 @@ linters:
     - gofumpt
     - goheader
     - goimports
-    - golint
+    - revive 
     - gomodguard
     - goprintffuncname
     - gosimple
     - govet
     - ineffassign
-    - interfacer
-    - maligned
     - misspell
     - nakedret
     - prealloc
