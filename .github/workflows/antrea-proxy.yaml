@@ -1,4 +1,4 @@
-name: Antrea-Proxy-1.4
+name: Antrea-Proxy-1.5
 on:
   push:
     branches:
@@ -24,13 +24,13 @@ jobs:
         run: |
           git clone https://github.com/antrea-io/antrea.git
           cd antrea
-          git checkout tags/v1.4.0
+          git checkout tags/v1.5.3
           kind get clusters
           kind get nodes --name=chart-testing | xargs ./hack/kind-fix-networking.sh
       - run: |
-          docker pull projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
-          kind load docker-image --name=chart-testing projects.registry.vmware.com/antrea/antrea-ubuntu:v1.4.0
-          kubectl apply -f https://github.com/antrea-io/antrea/releases/download/v1.4.0/antrea-kind.yml
+          docker pull projects.registry.vmware.com/antrea/antrea-ubuntu:v1.5.3
+          kind load docker-image --name=chart-testing projects.registry.vmware.com/antrea/antrea-ubuntu:v1.5.3
+          kubectl apply -f https://github.com/antrea-io/antrea/releases/download/v1.5.3/antrea-kind.yml
       - run: |
           ./hack/install_metallb.sh
       - run: |
